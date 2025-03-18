@@ -12,7 +12,7 @@ While running unmodified applications sounds attractive, this comes with two dow
 Unfortunately, the real platform winner when it comes to performance is a Type-1 hypervisor, such as Xen, for which there is no support in the Unikraft ELF loader library.
 Xen removes the host OS layer, present in a micro VM architecture, as pictured in \labelindexref{Figure}{img:unikernel-vm-architecture} and achieves faster results in a paravirtualized context.
 
-\fig[scale=0.5]{src/img/unikernel-vm-architecture.png}{img:unikernel-vm-architecture}{VM vs Unikernel Architecture} 
+\fig[scale=0.5]{src/img/unikernel-vm-architecture.png}{img:unikernel-vm-architecture}{VM vs Unikernel Architecture}
 
 \section{Xen and the Art of Virtualization}
 \label{sec:xen}
@@ -32,6 +32,18 @@ There are three main types of virtualization provided by Xen:
 
 \section{Unikraft and Xen}
 \label{sec:unikraft-xen}
+
+While hardware virtualization extensions made virtualizing x86 easier, they provided help with only one component, the processor.
+All other units still needed to be emulated, and Xen accomplished that by intergrating QEMU into the software stack with the whole purpose of emulating disk, network, motherboard, and PCI devices.
+
+The first take was to run QEMU in dom0, as showed in  \labelindexref{Figure}{img:QEMU-in-dom0}, however that increases the attack surface of the privileged domain, and its task load.
+The second take, and the more efficient one, was to run QEMU in its own domU, providing every HVM guest with a unique device model.
+Pictured in \labelindexref{Figure}{img:QEMU-in-stubdomain}, this hyper-specialised guest is known as a stubdomain (or stubdom) and is currently build as a MiniOS unikernel against an out-of-date QEMU version.
+
+\fig[scale=0.5]{src/img/QEMU-in-dom0.png}{img:QEMU-in-dom0}{QEMU running as a device model in dom0}
+\fig[scale=0.5]{src/img/QEMU-in-stubdomain.png}{img:QEMU-in-stubdomain}{QEMU running as a device model in stubdomain}
+
+Having started as a Xen Project, Unikraft maintains a great relationship with the Xen community and the features that make it a great UDK, ease of apps and libraries porting, POSIX compliancy,  active members, also call for exchanging the MiniOS device models with Unikraft unikernels running an upstream version of QEMU.
 
 % This thesis presents the \textbf{\project}.
 

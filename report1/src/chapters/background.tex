@@ -9,13 +9,26 @@ The major two directions that emerge are concerned, on one hand, with portabilit
 Unikraft is part of the first category, having implemented a powerful syscall shim layer and an ELF loader library capable of linking and running unmodified POSIX compliant binaries (and shared libraries) in the final VM.
 While running unmodified applications sounds attractive, this comes with two downsides: the UDK must carry over all the abstractions of the Linux kernel and there's little support for running these unmodified binaries on other platforms than QEMU/KVM.
 
-Unfortunately, the real platform winner when it comes to performance is a type 1 hypervisor, such as Xen, for which there is no support in the Unikraft ELF loader library.
+Unfortunately, the real platform winner when it comes to performance is a Type-1 hypervisor, such as Xen, for which there is no support in the Unikraft ELF loader library.
 Xen removes the host OS layer, present in a micro VM architecture, as pictured in \labelindexref{Figure}{img:unikernel-vm-architecture} and achieves faster results in a paravirtualized context.
 
 \fig[scale=0.5]{src/img/unikernel-vm-architecture.png}{img:unikernel-vm-architecture}{VM vs Unikernel Architecture} 
 
 \section{Xen and the Art of Virtualization}
 \label{sec:xen}
+
+Xen is a Type-1 (also known as native or baremetal) hypervisor, introduced in 2003 in an effort to provide the industry with a VMM capable of managing the notoriously hard to virtualize x86 architecture.
+On the x86 architecture, it occupies ring 0, with the guest kernels being evicted to the unused ring 1, and the applications running in the already established ring 3.
+It provides a special guest (or domain), named dom0 to fulfill tasks that Xen does not wish to implement, such as device drivers.
+Therefore, the dom0 guest needs elevated privileges and has to be properly secured.
+The other domains running under Xen are called domU guests and, depending on the architecture, are aware or not of the virtualized environment they are running in.
+There are three main types of virtualization provided by Xen:
+
+\begin{enumerate}
+  \item PV (Paravirtualized) in which the guest OS is aware that it is running in a virtualized environment, and was partially rewritten to account for it.
+  \item HVM (Hardware Virtualized Machine) in which the guest OS takes full advantage of the virtualization extensions introduced in newer processors (VT-x for Intel, and AMD-v for AMD) and runs unmodified.
+  \item PVH (Enhanced PV) in which the guest OS takes advantage of both paravirtualization and HVM features.
+\end{enumerate}
 
 \section{Unikraft and Xen}
 \label{sec:unikraft-xen}

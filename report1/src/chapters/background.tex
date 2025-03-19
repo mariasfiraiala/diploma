@@ -7,7 +7,7 @@
 Unikernels, also known as exokernels or library operating systems, come in various shapes and forms, centered around a philosophy.
 The major two directions that emerge are concerned, on one hand, with portability, through syscall shims and binary patching, and on the other hand, with rewriting these abstractions.
 Unikraft is part of the first category, having implemented a powerful syscall shim layer and an ELF loader library capable of linking and running unmodified POSIX compliant binaries (and shared libraries) in the final VM.
-While running unmodified applications sounds attractive, this comes with two downsides: the UDK must carry over all the abstractions of the Linux kernel and there's little support for running these unmodified binaries on other platforms than QEMU/KVM.
+While running unmodified applications sounds attractive, this comes with two downsides: the UDK must carry over all the abstractions of the Linux kernel and there's little support for running these unmodified binaries on platforms other than QEMU/KVM.
 
 Unfortunately, the real platform winner when it comes to performance is a Type-1 hypervisor, such as Xen, for which there is no support in the Unikraft ELF loader library.
 Xen removes the host OS layer, present in a micro VM architecture, as pictured in \labelindexref{Figure}{img:unikernel-vm-architecture} and achieves faster results in a paravirtualized context.
@@ -38,7 +38,7 @@ All other units still needed to be emulated, and Xen accomplished that by interg
 
 The first take was to run QEMU in dom0, as showed in  \labelindexref{Figure}{img:QEMU-in-dom0}, however that increases the attack surface of the privileged domain, and its task load.
 The second take, and the more efficient one, was to run QEMU in its own domU, providing every HVM guest with a unique device model.
-Pictured in \labelindexref{Figure}{img:QEMU-in-stubdomain}, this hyper-specialised guest is known as a stubdomain (or stubdom) and is currently build as a MiniOS unikernel against an out-of-date QEMU version.
+Pictured in \labelindexref{Figure}{img:QEMU-in-stubdomain}, this hyper-specialised guest is known as a stubdomain (or stubdom) and is currently built as a MiniOS unikernel against an out-of-date QEMU version.
 
 \fig[scale=0.5]{src/img/QEMU-in-dom0.png}{img:QEMU-in-dom0}{QEMU running as a device model in dom0}
 \fig[scale=0.5]{src/img/QEMU-in-stubdomain.png}{img:QEMU-in-stubdomain}{QEMU running as a device model in stubdomain}

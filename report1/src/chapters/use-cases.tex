@@ -1,0 +1,15 @@
+\chapter{Use Cases}
+\label{chapter:use-cases}
+
+\section{Main Use Case}
+\label{sec:main-use-case}
+
+Porting QEMU as a library in Unikraft benefits both Unikraft and Xen, firstly, by expanding the unikernel project reach and secondly, by replacing a long outdated piece of software: the MiniOS based model devices.
+The XenProject community is planing on adopting the technology and expanding it to other MiniOS stubdomains, such as the Xenstored one, currently running as a deamon inside dom0, and the virtual TPM stubdom, which was long ago marked as stale.
+\labelindexref{Figure}{img:disk-writes} clearly demonstrates the need to provide XenProject with a unikernel based model device, a more sophisticated one at that.
+There is significant room for expanding the project reach accross multiple communities, but the most interested one would be XenProject.
+
+\fig[scale=0.5]{src/img/disk-writes.png}{img:disk-writes}{Disk writes speed}
+
+\section{Other Use Cases}
+\label{sec:other-use-cases}

@@ -2,12 +2,12 @@
 \label{chapter:intro}
 
 As interest in serverless computing grows, fast, perfomant and efficient deployment of applications becomes the search for gold of the decade.
-Google's Kubernetes is a product that encapsulate just that: speedy startup times for applications, facil management and portability, however it does not account for extreme isolation and security.
+Google's Kubernetes \cite{k8s} is a product that encapsulate just that: speedy startup times for applications, facil management and portability, however it does not account for extreme isolation and security.
 
-Unikernels, on the other hand, accomplish all the key components with a few drawbacks.
+Unikernels, on the other hand, accomplish all the key components with a few drawbacks \cite{vm-safer}.
 They offer a single address space operating system with the target application linked against the key kernel features to result in an image with small attack surface and great performance thanks to hyper-specialization.
 The resulting binary runs either baremetal or under a hypervisor, in which case the isolation increases further: there have been close to 0 reported incidents of hyperjacking attacks in the last ten years.
 
-Unikraft is a UDK (Unikernel Development Kit) created with performance and curation in mind.
+Unikraft is a UDK (Unikernel Development Kit) \cite{unikraft} created with performance and curation in mind.
 It allows users to seamlessly create, build and run their application as a unikernel, either in native or binary compatible mode, in this way addresing the major drawback attached to unikernels: portability.
 Still eyeing portability, Unikraft makes it easy to run its VMs under a plethora of platforms: QEMU/KVM, Xen in both PV and PVH mode and Firecracker, with work in progress for platforms such as Hyper-V, bhyve and Raspi baremetal.

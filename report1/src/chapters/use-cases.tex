@@ -9,15 +9,15 @@ The XenProject community is planing on adopting the technology and expanding it 
 \labelindexref{Figure}{img:disk-writes} clearly demonstrates the need to provide XenProject with a unikernel based model device, a more sophisticated one at that.
 There is significant room for expanding the project reach across multiple communities, but the most interested one would be XenProject.
 
-\fig[scale=0.5]{src/img/disk-writes.png}{img:disk-writes}{Disk writes speed}
+\fig[scale=0.5]{src/img/disk-writes.png}{img:disk-writes}{Disk writes speed \cite{model-device-stubdom}}
 
 \section{Other Use Cases}
 \label{sec:other-use-cases}
 
-Other XenProject affiliated communities are also interested in the QEMU library port for Unikraft, namely, Qubes OS, an operating system developed with security in mind, running most of its processes as qubes \footnote{The term "qube" was originally invented as a non-technical alternative term to "VM".} under the Xen hypervisor.
+Other XenProject affiliated communities are also interested in the QEMU library port for Unikraft, namely, Qubes OS \cite{qubes-os}, an operating system developed with security in mind, running most of its processes as qubes \footnote{The term "qube" was originally invented as a non-technical alternative term to "VM".} under the Xen hypervisor.
 \labelindexref{Figure}{img:qubes-architecture} shows the regular OS processes running as VMs and the interaction between them according to the Qubes OS philosophy.
 
-\fig[scale=0.5]{src/img/qubes-architecture.png}{img:qubes-architecture}{Qubes OS architecture}
+\fig[scale=0.5]{src/img/qubes-architecture.png}{img:qubes-architecture}{Qubes OS architecture \cite{qubes-os-architecture}}
 
-One of these VMs is currently a Linux stubdomain running QEMU, with the purpose of maintaing alive a DHCP server and Pulseaudio, but the community is on the lookout to return to a unikernel based VM as the memory footprint is just too much \footnote{Even with a stripped down Linux image, the VM occupies 128-150 MB of RAM.}.
+One of these VMs is currently a Linux stubdomain running QEMU \cite{qubes-os-linux-stubdom}, with the purpose of maintaing alive a DHCP server and Pulseaudio, but the community is on the lookout to return to a unikernel based VM as the memory footprint is just too much \footnote{Even with a stripped down Linux image, the VM occupies 128-150 MB of RAM.}.
 QEMU in Unikraft will be able to address the need for lower RAM consumption and, generally, efficient resource usage.

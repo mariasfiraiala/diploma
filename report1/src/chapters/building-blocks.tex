@@ -1,10 +1,10 @@
 \chapter{Building Blocks}
 \label{chapter:building-blocks}
 
-QEMU \cite{qemu} is a machine emulator and virtualizer that aims to support building and executing on a plethora of OSes and for multiple architectures, therefore, we focus on configuring the Unikraft QEMU library to be used for the architectures supported by Unikraft and Xen, that being x64 and AArch64.
-Because there's little interest for AArch64 in Qubes OS, we set the sensible objective of building the unikernel only for x64.
+QEMU \cite{qemu} is a machine emulator and virtualizer that aims to support building and executing on a plethora of OSes and for multiple architectures, therefore, we focus on configuring the Unikraft QEMU library to be used for the architectures supported by Unikraft and Xen, that being \textit{x64} and \textit{AArch64}.
+Because there's little interest for AArch64 in Qubes OS, we set the sensible objective of building the unikernel only for \textit{x64}.
 Even by reducing the target to only one architecture, the total number of sources that would compile in the final Unikraft VM, from the QEMU side \footnote{QEMU is dependent on many external libraries, one of them being GLIBC} is still around 1400.
-When it comes to the platform the QEMU unikernel is going to run on, the obvious choice is Xen: it was requested by its community and it will be used by Qubes OS, a project that constructed their product around the Type-1 hypervisor.
+When it comes to the platform the QEMU unikernel is going to run on, the obvious choice is Xen: it was requested by its community and it will be used by Qubes OS, a project that constructed their product around the type-1 hypervisor.
 
-We created the QEMU port in Unikraft as an external library, lib-qemu, which requires multiple other external libraries: some that need to be freshly ported (lib-pcre2-8, lib-cap-ng, lib-lzo2, to name a few), and some that are already part of the Unikraft ecosystem (lib-musl and lib-zlib).
-As a result, we take advantage of the already implemented robust make based build system, to integrate the missing library pieces into the big Unikraft picture.
+We created the QEMU port in Unikraft as an external library, \textit{lib-qemu}, which requires multiple other external libraries: some that need to be freshly ported (\textit{lib-pcre2-8}, \textit{lib-cap-ng}, \textit{lib-lzo2}, to name a few), and some that are already part of the Unikraft ecosystem (\textit{lib-musl} and \textit{lib-zlib}).
+As a result, we take advantage of the already implemented robust make-based build system, to integrate the missing library pieces into the big Unikraft picture.

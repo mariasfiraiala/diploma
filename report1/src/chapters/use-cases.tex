@@ -5,7 +5,7 @@
 \label{sec:main-use-case}
 
 Porting QEMU as a library in Unikraft benefits both Unikraft and Xen, firstly, by expanding the unikernel project reach and secondly, by replacing a long outdated piece of software: the MiniOS-based model devices.
-The XenProject community is planing on adopting the technology and expanding it to other MiniOS stubdomains, such as the \textit{Xenstored} one, currently running as a daemon inside dom0, and the virtual TPM stubdom, which was long ago marked as stale.
+The XenProject community is planing on adopting the technology and expanding it to other MiniOS stubdomains, such as the \textit{Xenstored} \cite{xenstored-stubdom} one, currently running as a daemon inside dom0, and the virtual TPM stubdom \cite{xen-tpm-stubdom}, which was long ago marked as stale.
 \labelindexref{Figure}{img:disk-writes} clearly demonstrates the need to provide XenProject with an unikernel-based model device, a more sophisticated one at that.
 There is significant room for expanding the project reach across multiple communities, but the most interested one would be XenProject.
 

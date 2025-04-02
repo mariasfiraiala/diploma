@@ -38,7 +38,7 @@ All other units still needed to be emulated, and Xen accomplished that by integr
 
 The first take was to run QEMU in dom0, as showed in  \labelindexref{Figure}{img:QEMU-in-dom0}, however that increases the attack surface of the privileged domain, and its task load.
 The second take, and the more efficient one, was to run QEMU in its own domU, providing every HVM guest with a unique device model.
-Pictured in \labelindexref{Figure}{img:QEMU-in-stubdomain}, this hyper-specialized guest is known as a stubdomain (or stubdom) and is currently built as a MiniOS \cite{minios} unikernel against an out-of-date QEMU version.
+Pictured in \labelindexref{Figure}{img:QEMU-in-stubdomain}, this hyper-specialized guest is known as a stubdomain (or stubdom) \footnote{A stubdomain is a specialized system domain running on a Xen host used in order to disaggregate the control domain (dom0) \cite{xen-stubdomain}.} and is currently built as a MiniOS \cite{minios} unikernel against an out-of-date QEMU version.
 
 \fig[scale=0.5]{src/img/QEMU-in-dom0.png}{img:QEMU-in-dom0}{QEMU running as a device model in dom0 \cite{model-device-stubdom}}
 \fig[scale=0.5]{src/img/QEMU-in-stubdomain.png}{img:QEMU-in-stubdomain}{QEMU running as a device model in stubdomain \cite{model-device-stubdom}}

@@ -1,0 +1,52 @@
+\chapter{Background}
+\label{chapter:background}
+
+\section{Unikernels and Unikraft}
+\label{sec:unikernels-unikraft}
+
+Unikernels, also known as exokernels or library operating systems, come in various shapes and forms, centered around a philosophy.
+The major two directions that emerge are concerned, on one hand, with portability, through syscall shims and binary patching, and on the other hand, with rewriting these abstractions.
+Unikraft is part of the first category, having implemented a powerful syscall shim layer and an ELF loader library \cite{app-elfloader} capable of linking and running unmodified POSIX compliant binaries (and shared libraries) in the final VM.
+While running unmodified applications sounds attractive, this comes with two downsides: the UDK must carry over all the abstractions of the Linux kernel and there's little support for running these unmodified binaries on platforms other than QEMU/KVM.
+
+Unfortunately, the real platform winner when it comes to performance is a type-1 hypervisor, such as Xen, for which there is no support in the Unikraft ELF loader library.
+Xen removes the host OS layer, present in a micro-VM architecture, as pictured in \labelindexref{Figure}{img:unikernel-vm-architecture} and achieves faster results in a paravirtualized context.
+
+\fig[scale=0.5]{src/img/unikernel-vm-architecture.png}{img:unikernel-vm-architecture}{VM vs unikernel architecture \cite{vm-vs-unikernel}}
+
+\section{Xen and the Art of Virtualization \cite{art-of-xen}}
+\label{sec:xen}
+
+Xen is a type-1 (also known as native or baremetal) hypervisor, introduced in 2003 in an effort to provide the industry with a VMM capable of managing the notoriously hard to virtualize \textit{x86} architecture.
+On the \textit{x86} architecture, it occupies ring 0, with the guest kernels being evicted to the unused ring 1, and the applications running in the already established ring 3.
+It provides a special guest (or domain), named dom0 to fulfill tasks that Xen does not wish to implement, such as device drivers.
+Therefore, the dom0 guest needs elevated privileges and has to be properly secured.
+The other domains running under Xen are called domU guests and, depending on the architecture, are aware or not of the virtualized environment they are running in.
+There are three main types of virtualization provided by Xen \cite{xen-virtualization-types}:
+
+\begin{enumerate}
+  \item PV (Paravirtualized) in which the guest OS is aware that it is running in a virtualized environment, and was partially rewritten to account for it.
+  \item HVM (Hardware Virtualized Machine) in which the guest OS takes full advantage of the virtualization extensions introduced in newer processors (VT-x for Intel, and AMD-v for AMD) and runs unmodified.
+  \item PVH (Enhanced PV) in which the guest OS takes advantage of both paravirtualization and HVM features.
+\end{enumerate}
+
+\section{Unikraft and Xen}
+\label{sec:unikraft-xen}
+
+While hardware virtualization extensions made virtualizing \textit{x86} easier, they provided help with only one component, the processor.
+All other units still needed to be emulated, and Xen accomplished that by integrating QEMU into the software stack with the whole purpose of emulating disk, network, motherboard, and PCI devices.
+
+The first take was to run QEMU in dom0, as showed in  \labelindexref{Figure}{img:QEMU-in-dom0}, however that increases the attack surface of the privileged domain, and its task load.
+The second take, and the more efficient one, was to run QEMU in its own domU, providing every HVM guest with a unique device model.
+Pictured in \labelindexref{Figure}{img:QEMU-in-stubdomain}, this hyper-specialized guest is known as a stubdomain (or stubdom) \footnote{A stubdomain is a specialized system domain running on a Xen host used in order to disaggregate the control domain (dom0) \cite{xen-stubdomain}.} and is currently built as a MiniOS \cite{minios} unikernel against an out-of-date QEMU version.
+
+\fig[scale=0.5]{src/img/QEMU-in-dom0.png}{img:QEMU-in-dom0}{QEMU running as a device model in dom0 \cite{model-device-stubdom}}
+\fig[scale=0.5]{src/img/QEMU-in-stubdomain.png}{img:QEMU-in-stubdomain}{QEMU running as a device model in stubdomain \cite{model-device-stubdom}}
+
+Having started as a Xen Project \cite{unikraft-xen}, Unikraft maintains a great relationship with the Xen community and the features that make it a great UDK, ease of apps and libraries porting, POSIX compliance, active members, also call for exchanging the MiniOS device models with Unikraft unikernels running an upstream version of QEMU.
+
+\abbrev{ELF}{Executable and Linkable Format}
+\abbrev{VMM}{Virtual Machine Monitor}
+\abbrev{PV}{Paravirtualized}
+\abbrev{HVM}{Hardware Virtualized Machine}
+\abbrev{PVH}{Enhanced PV}

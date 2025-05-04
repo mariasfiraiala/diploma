@@ -1,0 +1,10 @@
+\chapter{Architectural Overview}
+\label{chapter:architecture}
+
+Achieving running QEMU in Unikraft means mostly working on the external libraries mentioned in the previous chapter: \textit{lib-musl}, \textit{lib-zlib}, \textit{lib-pcre} and \textit{lib-pixman}, which are already ported, and \textit{lib-seccomp}, \textit{lib-glib} and other Xen libraries, to be ported in an effort to support the target \textit{lib-qemu}.
+\labelindexref{Figure}{img:project-architecture} displays the interaction between these components inside Unikraft, together with an extra feature to be achieved in order to have the final unikernel able to make hypercalls.
+
+\fig[scale=0.5]{src/img/project-architecture.png}{img:project-architecture}{QEMU port architecture}
+
+As a result of having the Unikraft QEMU VM running in a Qubes OS context, we have to be aware of the fact that the unikernel has to know how to issue hypercalls, due to the Xen specific libraries that the community is currently using, \textit{libxendevicemodel} and \textit{libxenctrl}, to name a few.
+Therefore, we include into the implementation an extra component, \textit{xen-hypercalls}, functioning as a driver inside Unikraft core.

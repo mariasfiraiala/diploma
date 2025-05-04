@@ -1,0 +1,25 @@
+\chapter{Use Cases}
+\label{chapter:use-cases}
+
+\section{Main Use Case}
+\label{sec:main-use-case}
+
+Porting QEMU as a library in Unikraft benefits both Unikraft and Xen, firstly, by expanding the unikernel project reach and secondly, by replacing a long outdated piece of software: the MiniOS-based model devices.
+The XenProject community is planing on adopting the technology and expanding it to other MiniOS stubdomains, such as the \textit{Xenstored} \cite{xenstored-stubdom} one, currently running as a daemon inside dom0, and the virtual TPM stubdom \cite{xen-tpm-stubdom}, which was long ago marked as stale.
+\labelindexref{Figure}{img:disk-writes} clearly demonstrates the need to provide XenProject with an unikernel-based model device, a more sophisticated one at that.
+There is significant room for expanding the project reach across multiple communities, but the most interested one would be XenProject.
+
+\fig[scale=0.5]{src/img/disk-writes.png}{img:disk-writes}{Disk writes speed \cite{model-device-stubdom}}
+
+\section{Other Use Cases}
+\label{sec:other-use-cases}
+
+Other XenProject affiliated communities are also interested in the QEMU library port for Unikraft, namely, Qubes OS \cite{qubes-os}, an operating system developed with security in mind, running most of its processes as qubes \footnote{The term "qube" was originally invented as a non-technical alternative term to "VM".} under the Xen hypervisor.
+\labelindexref{Figure}{img:qubes-architecture} shows the regular OS processes running as VMs and the interaction between them according to the Qubes OS philosophy.
+
+\fig[scale=0.5]{src/img/qubes-architecture.png}{img:qubes-architecture}{Qubes OS architecture \cite{qubes-os-architecture}}
+
+One of these VMs is currently a Linux stubdomain running QEMU \cite{qubes-os-linux-stubdom}, with the purpose of maintaining alive a DHCP server and Pulseaudio, but the community is on the lookout to return to an unikernel-based VM as the memory footprint is just too much\footnote{Even with a stripped down Linux image, the VM occupies 128-150 MB of RAM.}.
+QEMU in Unikraft will be able to address the need for lower RAM consumption and, generally, efficient resource usage.
+
+\abbrev{TPM}{Trusted Platform Module}

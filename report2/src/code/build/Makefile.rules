@@ -1,0 +1,35 @@
+#
+# Import a sub-library of qemu
+#
+# @param $(1)
+#   The name of the sub-library within qemu.
+# @param $(2)
+#   The headers for this sub-library.
+# @param $(3)
+#   The source files for this sub-library.
+#
+define _libqemu_import_lib
+$(LIBQEMU_BUILD)/include/$(1):
+	$(call verbose_cmd,MKDIR,libqemu: $(subst $(LIBQEMU_BUILD),,$(1)): $(notdir $$@), mkdir -p $$@)
+
+# Make a symbolic link of the original header file to a sub-library directory
+$(LIBQEMU_BUILD)/include/$(1)/%.h:
+	$$(Q)mkdir -p $$(shell dirname $$@)
+	$(call verbose_cmd,HOSTLN,libqemu: $(1): $$(subst $(LIBQEMU_BUILD)/include/$(1)/,,$$@), \
+		ln -sf $$(subst $(LIBQEMU_BUILD)/include/$(1)/,$(LIBQEMU),$$@) $$@)
+
+# includes for building libqemu
+LIBQEMU_$(call uc,$(1))_INCLUDES-y += -I$(LIBQEMU_BUILD)/include/$(1)/src/internal
+LIBQEMU_$(call uc,$(1))_INCLUDES-y += -I$(LIBQEMU_BUILD)/include/$(1)/src/$(1)
+LIBQEMU_$(call uc,$(1))_INCLUDES-y += -I$(LIBQEMU_BUILD)/include/$(1)/include
+LIBQEMU_SRCS-y += $(3)
+LIBQEMU_CINCLUDES-y += $$(LIBQEMU_$(call uc,$(1))_INCLUDES-y)
+LIBQEMU_CXXINCLUDES-y += $$(LIBQEMU_$(call uc,$(1))_INCLUDES-y)
+
+# includes for using libqemu
+CINCLUDES-$(CONFIG_LIBQEMU) += -I$(LIBQEMU_BUILD)/include/$(1)/include
+CXXINCLUDES-$(CONFIG_LIBQEMU) += -I$(LIBQEMU_BUILD)/include/$(1)/include
+
+# Append the sub library directory to the include path
+$(LIBQEMU_BUILD)/.prepared: $(subst $(LIBQEMU),$(LIBQEMU_BUILD)/include/$(1),$(2))
+endef

@@ -108,6 +108,43 @@ include $(LIBQEMU_BASE)/Makefile.uk.qemu.qos
 \section{\textit{lib-glib} Implementation}
 \label{sec:impl-lib-glib}
 
+GLib \cite{glib} is a C utility open source library on which QEMU heavily relies for data types, macros and more.
+Besides using the main GLib library, QEMU also requires porting GModule \cite{gmodule}, for dynamically loading modules.
+Because of the general organization of the library's source code \footnote{GLib's tarballs deliver multiple additional libraries: GObject, GModule and GIO}, we brought GLib to Unikraft with the option of enabling/disabling GModule as the user sees fit.
+This is achieved in \labelindexref{Listing}{lst:glib-config-uk} by transforming the library into a mini menuconfig.
+
+\lstset{language=make,caption=\textit{lib-glib}'s \textit{Config.uk},label=lst:glib-config-uk}
+\begin{lstlisting}
+menuconfig LIBGLIB
+    bool "GLib: a C utility library"
+    default n
+    depends on HAVE_LIBC
+    depends on LIBPCRE2
+    select LIBUKMMAP
+    select LIBPOSIX_SYSINFO
+
+if LIBGLIB
+
+config LIBGLIB_GMODULE
+    bool "Build gmodule"
+    default n
+
+endif
+\end{lstlisting}
+
+Similarly to \textit{lib-qemu}, GLib exposes an initial configuration step, that sets various macros based on the host system setup, which end up, unfortunately, falsely making assumptions about Unikraft's various capabilities.
+We bypass this step and include our own headers, with the right modifications.
+
+On the other hand, building GLib does not require all the blocks found in \textit{lib-qemu}: we simply fetch the source code, compile the collected sources (if GModule is selected, some extra files are added — see \labelindexref{Listing}{lst:glib-makefile-uk-1}) and link the library into the unikernel image.
+
+\lstset{language=make,caption={\textit{lib-glib}'s on demand inclusion of GModule sources from \textit{Makefile.uk}},label=lst:glib-makefile-uk-1}
+\begin{lstlisting}
+LIBGLIB_SRCS-$(CONFIG_LIBGLIB_GMODULE) += $(LIBGLIB)/gmodule/gmodule.c
+LIBGLIB_SRCS-$(CONFIG_LIBGLIB_GMODULE) += $(LIBGLIB)/gmodule/gmodule-deprecated.c
+\end{lstlisting}
+
+However, GLib is not fully freestanding: without accounting for \textit{lib-musl}, it relies on the PCRE2 library, which should also be introduced to Unikraft.
+
 \section{\textit{lib-pcre2} Implementation}
 \label{impl-lib-pcre2}
 

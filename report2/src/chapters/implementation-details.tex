@@ -1,8 +1,109 @@
 \chapter{Implementation Details}
 \label{chapter:implementation-details}
 
+Porting any piece of software as an external library to Unikraft means molding its build system to Unikraft's rather than the other way around.
+Unikraft's build lifecycle consists of multiple steps:
+
+\begin{enumerate}
+    \item \textbf{Configuring} the unikernel (using Kconfig \cite{kconfig} for ease of selection and dependency check).
+    \item \textbf{Fetching} the remote library code (through complex \textit{make} rules saved in a \textit{Makefile.uk} file).
+    \item \textbf{Preparing} the fetched library code (as stated in \textit{Makefile.uk}).
+    \item \textbf{Compiling} the external library code together with Unikraft's core libraries (using the \textit{make} variables populated by \textit{Makefile.uk}).
+    \item \textbf{Linking} the final unikernel image.
+  \end{enumerate}
+
+Depending on the library, extra steps must be added: patching, creating glue code in order to ensure (binary) compatibility with Unikraft or auto-generating sources and headers.
+Nevertheless, the magic happens via two very important files, \textit{Config.uk}, containing the dependencies of the library, and \textit{Makefile.uk}, consisting of the \textit{make} rules that fetch, configure and build the right sources.
+
 \section{\textit{lib-qemu} Implementation}
 \label{sec:impl-lib-qemu}
+
+Bringing QEMU to Unikraft followed the usual build lifecycle of a C/C++ open source library, as described before.
+Firstly, we laid down its dependencies and registered them to the menuconfig system, as pictured in \labelindexref{Listing}{lst:qemu-config-uk}.
+
+\lstset{language=make,caption=\textit{lib-qemu}'s \textit{Config.uk},label=lst:qemu-config-uk}
+\begin{lstlisting}
+config LIBQEMU
+    bool "QEMU: An emulation library"
+    default n
+    select LIBMUSL
+    select LIBGLIB
+    select LIBPCRE2
+    select LIBZLIB
+    select LIBPIXMAN
+    select LIBXENTOOLS
+\end{lstlisting}
+
+Secondly, we registered the library, fetched and patched its code with the necessary changes needed by the QubesOS community, shown in \labelindexref{Listing}{lst:qemu-makefile-uk-1}
+
+\lstset{language=make,caption={\textit{lib-qemu}'s registration, fetching and patching from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-1}
+\begin{lstlisting}
+####################################################################
+# Library registration
+####################################################################
+$(eval $(call addlib_s,libqemu,$(CONFIG_LIBQEMU)))
+    
+####################################################################
+# Sources
+####################################################################
+LIBQEMU_VERSION=8.1.2
+LIBQEMU_URL=https://download.qemu.org/qemu-$(LIBQEMU_VERSION).tar.xz
+LIBQEMU_DIR=qemu-$(LIBQEMU_VERSION)/
+LIBQEMU_PATCHDIR=$(LIBQEMU_BASE)/patches
+    
+$(eval $(call fetch,libqemu,$(LIBQEMU_URL)))
+$(eval $(call patch,libqemu,$(LIBQEMU_PATCHDIR),$(LIBQEMU_DIR)))
+\end{lstlisting}
+
+Thirdly, we collected and auto-generated sources and files as seen in QEMU's Ninja/Meson-based original build system.
+This is captured in \labelindexref{Listing}{lst:qemu-makefile-uk-2}.
+
+\lstset{language=make,caption={\textit{lib-qemu}'s auto-generation of source and header files from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-2}
+\begin{lstlisting}
+####################################################################
+# QEMU prepare
+####################################################################
+# Auto-generate sources and headers
+$(LIBQEMU_BUILD)/.configured: $(LIBQEMU_BUILD)/.prepared
+    $(call verbose_cmd,CONFIG,libqemu: $(notdir $@), \
+     $(LIBQEMU_BASE)/helpers/custom_commands.sh $(LIBQEMU) && touch $@)
+\end{lstlisting}
+
+Even though QEMU's original Ninja/Meson-based build system uses \textit{autoconf} \cite{autoconf} as a first step to generate target and host configurations based on the environment in which it is called, we had to avoid calling \textit{./configure} as it makes assumptions that fail in Unikraft's freestanding context.
+As a result, most of the configuration steps that were resolved automatically by the script have to be employed manually, and one of the instances in which this happens is the aforementioned target, host and device configs, that are now part of the \textit{lib-qemu} port.
+
+The final and most important step in achieving a working device model instance is deciding what sources will take part in the final image.
+Because we are concerned with compartmentalization, we made the decision that \textit{lib-qemu} should be organized in sub-libraries, due to the sheer number of files.
+Each sub-library has its own \textit{Makefile.uk} which further registers its sources and headers to the build system via \textit{Makefile.rules} as shown in \labelindexref{Listing}{lst:makefile-rules}.
+What's more, \textit{lib-qemu}'s sub-libraries should also be included into the main \textit{Makefile.uk} in order to benefit from the rules defined by \textit{Makefile.rules} as pictured by \labelindexref{Listing}{lst:qemu-makefile-uk-3}.
+
+\lstset{language=make,caption={\textit{lib-qemu}'s registration of sub-libraries from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-3}
+\begin{lstlisting}
+# Additional macros for qemu sub-libraries
+include $(LIBQEMU_BASE)/Makefile.rules
+
+#############################################################
+# QEMU code -- one external Makefile per sub-lib
+#############################################################
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.authz
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.block
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.blockdev
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.chardev
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.common
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.crypto
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.event-loop-base
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.fdt
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.gdb_softmmu
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.gdb_user
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.hwcore
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.io
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.migration
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qemuutil
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qemu-x86_64-softmmu
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qmp
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qom
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qos
+\end{lstlisting}
 
 \section{\textit{lib-glib} Implementation}
 \label{sec:impl-lib-glib}

@@ -165,3 +165,14 @@ LIBPCRE2_CFLAGS-y += $(LIBPCRE2_DEFINES-y)
 \end{lstlisting}
 
 \section{\textit{lib-xentools} Update}
+
+Xen-tools \cite{xen-tools} represents a collection of libraries used by domains for interacting with the Xen hypervisor.
+Some of the functionality it provides is concerned with: XenStore\footnote{XenStore is a hierarchical namespace (similar to a filesystem) shared between domains.}, event channels\footnote{Event channels are the basic primitive provided by Xen for event notifications, similar to hardware interrupts.}, grant tables\footnote{Grant tables provide a generic mechanism to memory sharing between domains.}, hypercalls\footnote{Hypercalls are a software trap from a domain to the hypervisor.}, privileged foreign mappings, device models and logging.
+It is part of the Xen hypervisor source tree \cite{xen-source-tree} but acts as a separate subsystem.
+
+Because Unikraft started as a Xen project, it has an early port of Xen-tools that dates back to 2019, the 4.13 release.
+Nonetheless, that needs to be updated to a newer version in order to match \textit{lib-qemu} and the environment in which the stubdomain will be tested, a 4.18 Xen hypervisor running an Ubuntu 24.04 dom0, ergo, a bump to the 4.18 release for Xen-tools is necessary.
+
+Updating the library meant revisiting the sources that were included, fixing paths for the ones that were moved and removing the ones that were reorganized.
+An example to follow this idea would be the split of \textit{libxenctrl} into \textit{libxenctrl} and \textit{libxenguest}, that resulted in the decision of not including the latter due to no use-case at hand.
+The Xen-tools libraries required by \textit{lib-qemu} are \textit{libxencall}, \textit{libxenctrl}, \textit{libxendevicemodel}, \textit{libxenevtchn}, \textit{libxenforeingmemory}, \textit{libgnttab}, \textit{libxenstore}, \textit{libxentoolcore} and \textit{libxentoollog}, all updated to the target 4.18 version through the usual Unikraft build lifecycle.

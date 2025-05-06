@@ -148,4 +148,20 @@ However, GLib is not fully freestanding: without accounting for \textit{lib-musl
 \section{\textit{lib-pcre2} Implementation}
 \label{impl-lib-pcre2}
 
+PCRE2 \cite{pcre2} is a library that offers regular expression pattern matching using Perl like syntax.
+It is highly configurable and modular and presents itself as one of the easiest library to be ported to Unikraft due to the detailed documentation and design.
+
+As it can be built for multiple encodings (UTF-8, UTF-16 or UTF-32), we went for a menuconfig approach, similar to how we managed \textit{lib-glib}.
+To achieve this, we passed different preprocessing symbols matching the user's options as seen in \labelindexref{Listing}{lst:pcre2-makefile-uk-1}.
+
+\lstset{language=make,caption={\textit{lib-pcre2}'s on demand selection of encodings from \textit{Makefile.uk}},label=lst:pcre2-makefile-uk-1}
+\begin{lstlisting}
+# Preprocessing symbols
+LIBPCRE2_DEFINES-y += -DHAVE_CONFIG_H
+LIBPCRE2_DEFINES-$(CONFIG_LIBPCRE2_CODE_UNIT_WIDTH_8) += -DPCRE2_CODE_UNIT_WIDTH=8 -DSUPPORT_PCRE2_8
+LIBPCRE2_DEFINES-$(CONFIG_LIBPCRE2_CODE_UNIT_WIDTH_16) += -DPCRE2_CODE_UNIT_WIDTH=16 -DSUPPORT_PCRE2_16
+LIBPCRE2_DEFINES-$(CONFIG_LIBPCRE2_CODE_UNIT_WIDTH_32) += -DPCRE2_CODE_UNIT_WIDTH=32 -DSUPPORT_PCRE2_32
+LIBPCRE2_CFLAGS-y += $(LIBPCRE2_DEFINES-y)
+\end{lstlisting}
+
 \section{\textit{lib-xentools} Update}

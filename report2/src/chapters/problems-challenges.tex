@@ -1,0 +1,89 @@
+\chapter{Problems and Challenges}
+\label{chapter:problems-challenges}
+
+Usually, building the unikernel with the target library is a very iterative process because it requires building the unikernel step-by-step, including new files to the build, making adjustments, re-building, etc.
+This, and the various and quite quirky build systems libraries impose, is why we must first build the soon-to-be-ported library locally, understand the steps it goes through, its dependencies and sources and only then bring it to Unikraft.
+\textit{lib-qemu} followed no different path from that: we ran the \textit{./configure} script with a bunch of options disabled, in order to get a lean image, and finally, we called \textit{make} to start the compilation.
+Typically, this step produces output of great importance for the porting work, because it contains compiler options, flags, sources and includes, all which should be transformed into rules in the ported library \textit{Makefile.uk}.
+
+\section{\textit{lib-qemu}'s Sources}
+\label{sec:lib-qemu-sources}
+
+Above is the context of the major challenge we faced when porting QEMU to Unikraft.
+The problem itself was that no useful output was provided by the compilation step: minimalistic, the \textit{make} output provided merely an idea of what source file was compiling at a given moment of time, as captured by \labelindexref{Listing}{lst:snippet-make-output}.
+In consequence, we had to search for the necessary information elsewhere. 
+
+\lstset{language=bash,caption={Snippet of the 1913 lines \textit{make} output},label=lst:snippet-make-output}
+\begin{lstlisting}
+[1509/1913] Compiling C object qemu-system-x86_64.p/softmmu_main.c.o
+\end{lstlisting}
+
+\subsection{First Iteration}
+\label{subsec:first-iteration}
+
+The first place we went to find answers was a log file, saved by Meson, with all the compile commands, conveniently named \textit{compile_commands.json}.
+It contains a list with all the compilation and linking commands ran during the build, a snippet being shown in \labelindexref{Listing}{lst:snippet-compile_commands}.
+
+\lstset{language=make,caption={Snippet of an element saved in the array of the compile_commands.json file},label=lst:snippet-compile_commands}
+\begin{lstlisting}
+{
+    "directory": "/home/maria/qemu/build",
+    "command": "cc -m64 -mcx16 -Isubprojects/dtc/libfdt/libfdt.a.p -Isubprojects/dtc/libfdt -I../subprojects/dtc/libfdt -fdiagnostics-color=auto -Wall -Winvalid-pch -Werror -std=gnu11 -O2 -g -Wpointer-arith -Wcast-qual -Wnested-externs -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wshadow -DFDT_ASSUME_MASK=0 -DNO_YAML -DNO_VALGRIND -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -fno-strict-aliasing -fno-common -fwrapv -fPIE -MD -MQ subprojects/dtc/libfdt/libfdt.a.p/fdt.c.o -MF subprojects/dtc/libfdt/libfdt.a.p/fdt.c.o.d -o subprojects/dtc/libfdt/libfdt.a.p/fdt.c.o -c ../subprojects/dtc/libfdt/fdt.c",
+    "file": "../subprojects/dtc/libfdt/fdt.c",
+    "output": "subprojects/dtc/libfdt/libfdt.a.p/fdt.c.o"
+}
+\end{lstlisting}
+
+Having this array at hand, we were able to parse it, create the necessary source paths and register them in their subsequent sub-library.
+The headers were parsed by opening each source file and extracting the includes, but unfortunately that wasn't robust enough, as headers can include other headers and so on.
+We had to find a better solution.
+
+\subsection{Second Iteration}
+\label{subsec:second-iteration}
+
+The second approach appeared to be better in the sense that all source and headers to be introduced into the Unikraft build system were found in the \textit{.d} files generated at compile time.
+Handily, each QEMU sub-library had these dependency files saved separately, so parsing them and producing each sub-library's \textit{Makefile.uk} by applying the \labelindexref{Listing}{lst:get_sources} script was greatly eased.
+
+\subsection{Third Iteration}
+\label{subsec:third-iteration}
+
+With source and header files introduced to the build system, we started compiling the library.
+It was no surprise finding out that the original QEMU build system, with all of its many optional configurations disabled, was still too bloated.
+This was due to the on-cascade selection of configs done by QEMU's \textit{minikconf.py} script, concerned with parsing \textit{.mak} files and checking the dependencies between various configurations.
+As a result, we patched the original QEMU build system to skip this step and provided our own target, host and devices config headers. 
+
+\section{\textit{lib-qemu}'s Reliance on Linux Features}
+\label{sec:lib-qemu-linux-headers}
+
+QEMU's build system picks up the target operating system on which the final binary will run based on the environmental setup of the machine on which the compilation takes place.
+For Unikraft, it is highly problematic because it means that very specific Linux features will be expected to be supported.
+Sources of the fashion of \textit{can_socketcan.c}, as seen in \labelindexref{Listing}{lst:meson-assumptions}, therefore become candidates for compilation even though they make use of (problematic for Unikraft) headers.
+The used headers are pictured in \labelindexref{Listing}{lst:linux-headers}, and they error out when compiling against the Unikraft codebase simply because Unikraft does not support all Linux kernel features.
+
+\lstset{language=python,caption={Meson assuming Linux specific \textit{can_socketcan.c} source is needed by environmental variable},label=lst:meson-assumptions}
+\begin{lstlisting}
+can_ss.add(when: 'CONFIG_LINUX', if_true: files('can_socketcan.c'))
+\end{lstlisting}
+
+\lstset{language=c,caption={Impossible to compile \textit{can_socketcan.c} source due to specific to Linux headers},label=lst:linux-headers}
+\begin{lstlisting}
+#include "qemu/osdep.h"
+#include "qemu/log.h"
+#include "qemu/main-loop.h"
+#include "qemu/module.h"
+#include "qapi/error.h"
+#include "chardev/char.h"
+#include "qemu/sockets.h"
+#include "qemu/error-report.h"
+#include "net/can_emu.h"
+#include "net/can_host.h"
+    
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <linux/can.h>
+#include <linux/can/raw.h>
+#include "qom/object.h"    
+\end{lstlisting}
+
+Consequently, we had two options going forward: overwrite the target operating system during the configuration step or manually removing all sources introduced into the build system by the set \textit{CONFIG_LINUX} variable.
+We went for the second option, as the configuration script errors out if there's no traditional operating system detected and modifying that behavior meant patching a piece of software out of the reach for this project.

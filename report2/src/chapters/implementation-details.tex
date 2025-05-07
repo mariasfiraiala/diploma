@@ -110,7 +110,7 @@ include $(LIBQEMU_BASE)/Makefile.uk.qemu.qos
 
 GLib \cite{glib} is a C utility open source library on which QEMU heavily relies for data types, macros and more.
 Besides using the main GLib library, QEMU also requires porting GModule \cite{gmodule}, for dynamically loading modules.
-Because of the general organization of the library's source code \footnote{GLib's tarballs deliver multiple additional libraries: GObject, GModule and GIO}, we brought GLib to Unikraft with the option of enabling/disabling GModule as the user sees fit.
+Because of the general organization of the library's source code\footnote{GLib's tarballs deliver multiple additional libraries: GObject, GModule and GIO}, we brought GLib to Unikraft with the option of enabling/disabling GModule as the user sees fit.
 This is achieved in \labelindexref{Listing}{lst:glib-config-uk} by transforming the library into a mini menuconfig.
 
 \lstset{language=make,caption=\textit{lib-glib}'s \textit{Config.uk},label=lst:glib-config-uk}

@@ -3,7 +3,7 @@
 
 Hypothetically, in a UDK competition, Unikraft would win: it presents itself with an active developer base, has regular releases and it is far from the days it used to import MiniOS implementations.
 It is growing and keeping itself to the industry standard, becoming a great replacement for the MiniOS-based unikernels currently used as stubdomains by Xen.
-The long awaited decision comes as the 0.97 QEMU version linked against the MiniOS kernel in the stubdomains has lost its purpose due to obsolescence \footnote{At the time of writing this paper, the upstream QEMU version is 10.0.0.} and has become unusable in modern contexts, with modern hardware emulation standards.
+The long awaited decision comes as the 0.97 QEMU version linked against the MiniOS kernel in the stubdomains has lost its purpose due to obsolescence\footnote{At the time of writing this paper, the upstream QEMU version is 10.0.0.} and has become unusable in modern contexts, with modern hardware emulation standards.
 
 By porting QEMU as a library inside Unikraft, we aim to provide a slim, up to date unikernel image running QEMU and an easy manner of bumping its version, through Unikraft's versatile make-based build system.
 We strive to offer a device model stubdomain that is both slim, easy to configure and specialized to Xen's needs.

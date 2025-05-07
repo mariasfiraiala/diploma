@@ -1,0 +1,10 @@
+\chapter{Current Status}
+\label{chapter:current-status}
+
+Up until this point, we've ported all libraries on which \textit{lib-qemu} depends, and we've achieved a Unikraft unikernel image capable of running QEMU.
+We are therefore looking at constructing a testing environment in order to confirm that the Unikraft VM is worthy of being considered a usable device model.
+
+What's more, depending on the test case at hand, we must take an interest in implementing the \textit{xen-hypercalls} Unikraft internal driver concerned with the device model's ability to emit hypercalls.
+
+A final planned step is to come close to running the QubesOS Linux-based device model as a Unikraft unikernel and compare metrics regarding RAM usage performance between the two approaches.
+This plan of action must be taken with a grain of salt, as it might imply bringing to Unikraft way too many features for the limited time of the project.

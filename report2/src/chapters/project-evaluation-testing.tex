@@ -1,0 +1,14 @@
+\chapter{Project Evaluation and Testing}
+\label{chapter:project-evaluation-testing}
+
+Once the building blocks are assembled, we can start testing \textit{lib-qemu}'s IO emulation functionality.
+To do so, we need a successful \textit{lib-qemu} build running a basic test doing device emulation.
+With that set up we can then focus on comparatively evaluating Unikraft's QEMU port to a real-life application: the QubesOS Linux stubdomain running QEMU as a device model.
+
+To this end, we can prove the theoretical advantages brought by unikernels when faced with a one purpose program that has to perform well.
+As such, we'll run a Linux device model, together with an Unikraft one, collect metrics that include RAM and CPU usage and draw conclusions.
+We are ultimately expecting to show beyond doubt that an Unikraft unikernel running QEMU is indeed the best option for device emulation because of security, slim memory footprint and fast responses.
+
+\labelindexref{Figure}{img:project-evaluation-steps} demonstrates the structured project performance evaluation plan together with the meaning and importance of each step's.
+
+\fig[scale=0.5]{src/img/project-evaluation-testing.png}{img:project-evaluation-steps}{Project evaluation and testing steps}

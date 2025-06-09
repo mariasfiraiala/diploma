@@ -1,6 +1,10 @@
 \chapter{Implementation Details}
 \label{chapter:implementation-details}
 
+\fig[scale=0.7]{src/img/build-stages.pdf}{img:build-stages}{Build stages in Unikraft}
+
+\fig[scale=0.5]{src/img/generated-files.pdf}{img:generated-files}{Generated files in building Unikraft \cite{unikraft-build-process}}
+
 \section{\textit{lib-qemu} Implementation}
 \label{sec:lib-qemu-impl}
 
@@ -31,11 +35,15 @@
 \subsection{Making \textit{lib-glib} a menuconfig}
 \label{subsec:glib-menuconfig}
 
+\fig[scale=0.30]{src/img/glib-menuconfig.png}{img:glib-menuconfig}{Configuring \textit{lib-glib}}
+
 \section{\textit{lib-pcre2} Implementation}
 \label{sec:lib-pcre2-impl}
 
 \subsection{\textit{lib-pcre2} with UTF-8,16,32 Encodings}
-\label{subsec:glib-menuconfig}
+\label{subsec:pcre2-menuconfig}
+
+\fig[scale=0.30]{src/img/pcre2-menuconfig.png}{img:pcre2-menuconfig}{Configuring \textit{lib-pcre2}}
 
 \section{\textit{lib-xentools} Update}
 \label{sec:lib-xentools-update}

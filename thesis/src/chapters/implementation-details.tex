@@ -8,11 +8,125 @@
 \section{\textit{lib-qemu} Implementation}
 \label{sec:lib-qemu-impl}
 
+\lstset{language=make,caption=\textit{lib-qemu}'s \textit{Config.uk},label=lst:qemu-config-uk}
+\begin{lstlisting}
+config LIBQEMU
+        bool "QEMU: An emulation library"
+        default n
+        select LIBMUSL
+        select LIBGLIB
+        select LIBZLIB
+        select LIBPIXMAN
+        select LIBXENTOOLS
+        select LIBINTEL_INTRINSICS
+        select LIBGCC
+\end{lstlisting}
+
 \subsection{Patching QEMU}
 \label{subsec:patching-qemu}
 
+\lstset{language=make,caption={\textit{lib-qemu}'s registration, fetching and patching from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-1}
+\begin{lstlisting}
+####################################################################
+# Library registration
+####################################################################
+$(eval $(call addlib_s,libqemu,$(CONFIG_LIBQEMU)))
+    
+####################################################################
+# Sources
+####################################################################
+LIBQEMU_VERSION=8.1.2
+LIBQEMU_URL=https://download.qemu.org/qemu-$(LIBQEMU_VERSION).tar.xz
+LIBQEMU_DIR=qemu-$(LIBQEMU_VERSION)/
+LIBQEMU_PATCHDIR=$(LIBQEMU_BASE)/patches
+    
+$(eval $(call fetch,libqemu,$(LIBQEMU_URL)))
+$(eval $(call patch,libqemu,$(LIBQEMU_PATCHDIR),$(LIBQEMU_DIR)))
+\end{lstlisting}
+
 \subsection{Configuring QEMU}
 \label{subsec:configuring-qemu}
+
+\lstset{language=make,caption={\textit{lib-qemu}'s configuration from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-2}
+\begin{lstlisting}
+####################################################################
+# QEMU prepare
+####################################################################
+# Run ./configure
+$(LIBQEMU_BUILD)/.configured: $(LIBQEMU_BUILD)/.prepared
+	$(call verbose_cmd,CONFIG,libqemu: $(notdir $@), \
+	cd $(LIBQEMU) && ./configure \
+        --cxx=/non-existent \
+        --disable-attr \
+        --disable-auth-pam \
+        --disable-bochs \
+        --disable-brlapi \
+        --disable-bzip2 \
+        --disable-cap-ng \
+        --disable-cloop \
+        --disable-cocoa \
+        --disable-coroutine-pool \
+        --disable-crypto-afalg \
+        --disable-curl \
+        --disable-curses \
+        --disable-dmg \
+        --disable-docs \
+        --disable-gcrypt \
+        --disable-glusterfs \
+        --disable-gnutls \
+        --disable-gtk \
+        --disable-guest-agent \
+        --disable-hax \
+        --disable-kvm \
+        --disable-libiscsi \
+        --disable-libnfs \
+        --disable-libssh \
+        --disable-linux-aio \
+        --disable-live-block-migration \
+        --disable-lzo \
+        --disable-netmap \
+        --disable-nettle \
+        --disable-numa \
+        --disable-opengl \
+        --disable-parallels \
+        --disable-qcow1 \
+        --disable-qed \
+        --disable-qom-cast-debug \
+        --disable-rbd \
+        --disable-rdma \
+        --disable-replication \
+        --disable-sdl \
+        --disable-seccomp \
+        --disable-slirp \
+        --disable-smartcard \
+        --disable-snappy \
+        --disable-spice \
+        --disable-spice \
+        --disable-tcg \
+        --disable-tools \
+        --disable-tpm \
+        --disable-usb-redir \
+        --disable-vde \
+        --disable-vdi \
+        --disable-vhost-crypto \
+        --disable-vhost-net \
+        --disable-vhost-user \
+        --disable-virglrenderer \
+        --disable-virglrenderer \
+        --disable-virtfs \
+        --disable-vnc \
+        --disable-vte \
+        --disable-vvfat \
+        --disable-werror \
+        --enable-pie \
+        --enable-rng-none \
+        --enable-trace-backends=log \
+        --enable-xen \
+        --enable-xen-pci-passthrough \
+        --prefix=/usr \
+        --target-list=x86_64-softmmu \
+        --without-default-features)
+\end{lstlisting}
 
 \subsection{Gathering Sources and Headers}
 \label{subsec:gathering-sources-headers}
@@ -20,8 +134,47 @@
 \subsection{Compartmentalizing \textit{lib-qemu}}
 \label{subsec:compartmentalizing-qemu}
 
+\lstset{language=make,caption={\textit{lib-qemu}'s registration of sub-libraries from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-3}
+\begin{lstlisting}
+# Additional macros for qemu sub-libraries
+include $(LIBQEMU_BASE)/Makefile.rules
+
+#############################################################
+# QEMU code -- one external Makefile per sub-lib
+#############################################################
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.authz
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.block
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.blockdev
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.chardev
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.common
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.crypto
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.event-loop-base
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.fdt
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.gdb_softmmu
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.gdb_user
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.hwcore
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.io
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.migration
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qemuutil
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qemu-x86_64-softmmu
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qmp
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qom
+include $(LIBQEMU_BASE)/Makefile.uk.qemu.qos
+\end{lstlisting}
+
 \subsection{Auto-generating Sources and Headers}
 \label{subsec:autogenerating-sources-headers}
+
+\lstset{language=make,caption={\textit{lib-qemu}'s auto-generation of source and header files from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-4}
+\begin{lstlisting}
+####################################################################
+# QEMU prepare
+####################################################################
+# Auto-generate sources and headers
+$(LIBQEMU_BUILD)/.configured: $(LIBQEMU_BUILD)/.prepared
+    $(call verbose_cmd,CONFIG,libqemu: $(notdir $@), \
+     $(LIBQEMU_BASE)/helpers/custom_commands.sh $(LIBQEMU) && touch $@)
+\end{lstlisting}
 
 \subsection{Compiling \textit{lib-qemu}}
 \label{subsec:compiling-qemu}
@@ -32,10 +185,35 @@
 \section{\textit{lib-glib} Implementation}
 \label{sec:lib-glib-impl}
 
+\lstset{language=make,caption=\textit{lib-glib}'s \textit{Config.uk},label=lst:glib-config-uk}
+\begin{lstlisting}
+menuconfig LIBGLIB
+        bool "GLib: a C utility library"
+        default n
+        select LIBMUSL
+        select LIBPCRE2
+        select LIBUKMMAP
+        select LIBPOSIX_SYSINFO
+
+if LIBGLIB
+
+config LIBGLIB_GMODULE
+        bool "Build gmodule"
+        default n
+
+endif
+\end{lstlisting}
+
 \subsection{Making \textit{lib-glib} a menuconfig}
 \label{subsec:glib-menuconfig}
 
 \fig[scale=0.30]{src/img/glib-menuconfig.png}{img:glib-menuconfig}{Configuring \textit{lib-glib}}
+
+\lstset{language=make,caption={\textit{lib-glib}'s on demand inclusion of GModule sources from \textit{Makefile.uk}},label=lst:glib-makefile-uk-1}
+\begin{lstlisting}
+LIBGLIB_SRCS-$(CONFIG_LIBGLIB_GMODULE) += $(LIBGLIB)/gmodule/gmodule.c
+LIBGLIB_SRCS-$(CONFIG_LIBGLIB_GMODULE) += $(LIBGLIB)/gmodule/gmodule-deprecated.c
+\end{lstlisting}
 
 \section{\textit{lib-pcre2} Implementation}
 \label{sec:lib-pcre2-impl}
@@ -44,6 +222,16 @@
 \label{subsec:pcre2-menuconfig}
 
 \fig[scale=0.30]{src/img/pcre2-menuconfig.png}{img:pcre2-menuconfig}{Configuring \textit{lib-pcre2}}
+
+\lstset{language=make,caption={\textit{lib-pcre2}'s on demand selection of encodings from \textit{Makefile.uk}},label=lst:pcre2-makefile-uk-1}
+\begin{lstlisting}
+# Preprocessing symbols
+LIBPCRE2_DEFINES-y += -DHAVE_CONFIG_H
+LIBPCRE2_DEFINES-$(CONFIG_LIBPCRE2_CODE_UNIT_WIDTH_8) += -DPCRE2_CODE_UNIT_WIDTH=8 -DSUPPORT_PCRE2_8
+LIBPCRE2_DEFINES-$(CONFIG_LIBPCRE2_CODE_UNIT_WIDTH_16) += -DPCRE2_CODE_UNIT_WIDTH=16 -DSUPPORT_PCRE2_16
+LIBPCRE2_DEFINES-$(CONFIG_LIBPCRE2_CODE_UNIT_WIDTH_32) += -DPCRE2_CODE_UNIT_WIDTH=32 -DSUPPORT_PCRE2_32
+LIBPCRE2_CFLAGS-y += $(LIBPCRE2_DEFINES-y)
+\end{lstlisting}
 
 \section{\textit{lib-xentools} Update}
 \label{sec:lib-xentools-update}

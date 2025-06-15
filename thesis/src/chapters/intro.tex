@@ -4,11 +4,30 @@
 \section{Context}
 \label{sec:context}
 
+As interest in cloud technologies grows, fast, performant and efficient deployment of applications becomes the search for gold of the decade.
+Docker \cite{docker} is a product that encapsulate just that: speedy startup times for applications, facile management and portability, however it does not account for extreme isolation and security.
+
+Unikernels, on the other hand, accomplish all the key components with a few drawbacks \cite{vm-safer}.
+They offer a single address space operating system with the target application linked against the key kernel features to result in an image with small attack surface and great performance thanks to hyper-specialization.
+The resulting binary runs either baremetal or under a hypervisor, in which case the isolation increases further: there have been close to 0 reported incidents of hyperjacking attacks in the last ten years.
+
+Unikraft is a UDK (Unikernel Development Kit) \cite{unikraft} created with performance and curation in mind.
+It allows users to seamlessly create, build and run their application as an unikernel, either in native or binary compatible mode, in this way addressing the major drawback attached to unikernels: portability.
+Still eyeing portability, Unikraft makes it easy to run its VMs under a plethora of platforms: QEMU/KVM, Xen in both PV and PVH mode and Firecracker, with work in progress for platforms such as Hyper-V, bhyve and Raspi baremetal.
+
 \section{Motivation}
 \label{sec:motivation}
 
+While Unikraft offers a multitude of applications and libraries ported to work with its abstractions (or lack thereof when it comes to userspace-kernelspace separation) \cite{catalog-core} \cite{catalog}, it has yet to provide a library for virtualization and emulation.
+Ergo, any user that wishes to run QEMU, Xen, VirtualBox, VMware or other virtualization and emulation software under Unikraft, has to manually go through the tedious task of creating a binary or shared library from the source code, run it together with its dependencies in binary compatible mode and hope that the application does not use features unfit for Unikraft.
+It is obvious that this approach suffers from many pitfalls and leaves room for improvement, mainly in creating glue code for every such application to be run in native mode in the resulting unikernel.
+
 \section{Objectives}
 \label{sec:objectives}
+
+Having ease of build, stability and portability in mind, we propose porting such a virtualization and emulation piece of software to Unikraft, bringing it into the UDK realm together with its library dependencies: QEMU.
+In order to satisfy the stability and portability invariants, we opted for a native port (as opposed to a binary-compatibility run) because it makes more room for configuring, patching and creating glue code to accommodate Unikraft's many quirks.
+We set the objective of having an Unikraft unikernel image running QEMU on Xen as a platform, capable of booting and being debugged.
 
 \section{Background}
 \label{sec:background}
@@ -16,10 +35,31 @@
 \subsection{Unikernels and Unikraft}
 \label{subsec:unikernels-unikraft}
 
+Unikernels, also known as library operating systems, the successors of exo-kernels, come in various shapes and forms, centered around a philosophy.
+The major two directions that emerge are concerned, on one hand, with portability, through syscall shims and binary patching, and on the other hand, with rewriting these abstractions.
+Unikraft is part of the first category, having implemented a powerful syscall shim layer and an ELF loader library \cite{app-elfloader} capable of linking and running unmodified POSIX compliant binaries (and shared libraries) in the final VM.
+While running unmodified applications sounds attractive, this comes with two downsides: the UDK must carry over all the abstractions of the Linux kernel and there's little support for running these unmodified binaries on platforms other than QEMU/KVM.
+
+Unfortunately, the real platform winner when it comes to performance is a type-1 hypervisor, such as Xen, for which there is no support in the Unikraft ELF loader library.
+Xen removes the host OS layer, present in a micro-VM architecture, as pictured in \labelindexref{Figure}{img:unikernels-vs-vms} and achieves faster results in a paravirtualized context.
+
 \fig[scale=0.7]{src/img/unikernels-vs-vms.pdf}{img:unikernels-vs-vms}{VM vs unikernel architecture \cite{unikernels-vs-vms}}
 
 \subsection{Xen and the Art of Virtualization \cite{art-of-xen}}
 \label{subsec:art-of-virtualization}
+
+Xen is a type-1 (also known as native or baremetal) hypervisor, introduced in 2003 in an effort to provide the industry with a VMM capable of managing the notoriously hard to virtualize \textit{x86} architecture.
+On the \textit{x86} architecture, it occupies ring 0, with the guest kernels being evicted to the unused ring 1, and the applications running in the already established ring 3.
+It provides a special guest (or domain), named dom0 to fulfill tasks that Xen does not wish to implement, such as device drivers.
+Therefore, the dom0 guest needs elevated privileges and has to be properly secured.
+The other domains running under Xen are called domU guests and, depending on the architecture, are aware or not of the virtualized environment they are running in.
+There are three main types of virtualization provided by Xen \cite{xen-virtualization-types}:
+
+\begin{enumerate}
+  \item PV (Paravirtualized) in which the guest OS is aware that it is running in a virtualized environment, and was partially rewritten to account for it.
+  \item HVM (Hardware Virtualized Machine) in which the guest OS takes full advantage of the virtualization extensions introduced in newer processors (VT-x for Intel, and AMD-v for AMD) and runs unmodified.
+  \item PVH (Enhanced PV) in which the guest OS takes advantage of both paravirtualization and HVM features.
+\end{enumerate}
 
 \subsection{QEMU}
 \label{subsec:qemu}
@@ -30,3 +70,7 @@
 \fig[scale=1]{src/img/QEMU-in-dom0.pdf}{img:qemu-in-dom0}{QEMU running as a device model in dom0 \cite{linux-stubdomain}}
 
 \fig[scale=1]{src/img/QEMU-in-stubdom.pdf}{img:qemu-in-stubdom}{QEMU running as a device model in stubdomain \cite{linux-stubdomain}}
+
+\abbrev{UDK}{Unikernel Development Kit}
+\abbrev{VM}{Virtual Machine}
+\abbrev{Raspi}{Raspberry Pi}

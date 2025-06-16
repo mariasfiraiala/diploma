@@ -61,16 +61,45 @@ There are three main types of virtualization provided by Xen \cite{xen-virtualiz
   \item PVH (Enhanced PV) in which the guest OS takes advantage of both paravirtualization and HVM features.
 \end{enumerate}
 
+% With the advent of hardware virtual machines in 2005-2006, a new task to be fulfilled by dom0 emerged: even though HVMs benefit from hardware extensions and don't require to be aware of the run context, they still need device emulation since Intel's VT-x and AMD's AMD-v only virtualize the processor.
+% Therefore, dom0 is left with the 
+
 \subsection{QEMU}
 \label{subsec:qemu}
+
+QEMU \cite{qemu} is an open source virtualizer and emulator concerned with full-system emulation, user-mode emulation and virtualization using accelerators such as KVM, Xen, MacOS's Hypervisor Framework (HVF) or Windows Hypervisor Platform (WHPX).
+One key feature offered by system emulation in QEMU is the ability to emulate devices that range from Virtio (the most performant one as it was originally implemented to work in a paravirtualized context under a hypervisor) \cite{virtio} to network, USB and NVMe.
+When it comes to IO emulation, QEMU presents four major building blocks for each device: 
+
+\begin{enumerate}
+  \item device front-end, how the guest sees the device.
+  \item device back-end, how the host does the emulation.
+  \item device bus, the communication channel to which the device is connected.
+  \item device pass-through, the ability granted to the emulated device to use the underlying hardware.
+\end{enumerate}
+
+Specifically for its device model support, Xen heavily relies on QEMU and has multiple forks of it, some that have been integrated in the upstream version, some that are still pending and used separately \cite{qemu-qemu-traditional}. 
 
 \subsection{Unikraft, Xen and QEMU}
 \label{subsec:unikraft-xen}
 
-\fig[scale=1]{src/img/QEMU-in-dom0.pdf}{img:qemu-in-dom0}{QEMU running as a device model in dom0 \cite{linux-stubdomain}}
+While hardware virtualization extensions made virtualizing \textit{x86} easier, they provided help with only one component, the processor.
+All other units still needed to be emulated, and Xen accomplished that by integrating QEMU into the software stack with the whole purpose of emulating disk, network, motherboard, and PCI devices.
 
+The first take was to run QEMU in dom0, as showed in  \labelindexref{Figure}{img:qemu-in-dom0}, however that increases the attack surface of the privileged domain, and its task load.
+The second take, and the more efficient one, was to run QEMU in its own domU, providing every HVM guest with a unique device model.
+Pictured in \labelindexref{Figure}{img:qemu-in-stubdom}, this hyper-specialized guest is known as a stubdomain (or stubdom)\footnote{A stubdomain is a specialized system domain running on a Xen host used in order to disaggregate the control domain (dom0) \cite{xen-stubdomain}.} and is currently built as a MiniOS \cite{minios} unikernel against an out-of-date QEMU version.
+
+\fig[scale=1]{src/img/QEMU-in-dom0.pdf}{img:qemu-in-dom0}{QEMU running as a device model in dom0 \cite{linux-stubdomain}}
 \fig[scale=1]{src/img/QEMU-in-stubdom.pdf}{img:qemu-in-stubdom}{QEMU running as a device model in stubdomain \cite{linux-stubdomain}}
+
+Having started as a Xen Project \cite{unikraft-xen}, Unikraft maintains a great relationship with the Xen community and the features that make it a great UDK, ease of apps and libraries porting, POSIX compliance, active members, also call for exchanging the MiniOS device models with Unikraft unikernels running an upstream version of QEMU.
 
 \abbrev{UDK}{Unikernel Development Kit}
 \abbrev{VM}{Virtual Machine}
 \abbrev{Raspi}{Raspberry Pi}
+\abbrev{ELF}{Executable and Linkable Format}
+\abbrev{VMM}{Virtual Machine Monitor}
+\abbrev{PV}{Paravirtualized}
+\abbrev{HVM}{Hardware Virtualized Machine}
+\abbrev{PVH}{Enhanced PV}

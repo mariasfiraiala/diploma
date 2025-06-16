@@ -4,10 +4,43 @@
 \section{QEMU Across Platforms}
 \label{sec:qemu-across-platforms}
 
+QEMU's accelerator, host operating system and host architecture support is extensive: \labelindexref{Table}{table:qemu-acc-support} illustrates just that, however it does not account for the host operating system running virtualized, let that be a stripped down traditional Linux VM, or a more exotic MiniOS unikernel.
+
+\begin{center}
+\begin{table}[htb]
+  \caption{QEMU support across host OS and architecture \cite{qemu-support}}
+  \begin{tabular}{l*{4}{c}r}
+    Accelerator & Host OS & Host Architecure \\
+    \hline
+    KVM & Linux & AArch64, x64, x86, others  \\
+    Xen & Linux in dom0 & AArch64, AArch32, x64, x86  \\
+    HVF & MacOS & x64, AArch64 \\
+    WHPX & Windows & x64, x86 \\
+    NVMM & NetBSD & x64, x86 \\
+    TCG & Linux, Windows, MacOS, others & AArch64, AArch32, x64, x86, others
+  \end{tabular}
+  \label{table:qemu-acc-support}
+\end{table}
+\end{center}
+
+For the purpose of our project, the last two approaches are of interest, since Xen, following the dom0 disaggregation philosophy \cite{dom0-disaggregation}, wishes to spawn an as slim as possible device model stubdomain for each HVM domU that is running at a given moment of time.
+Naturally, a such QEMU instance runs unprivileged and virtualized, so the usual setup of the process completely differs from the one QEMU was originally built for.
+
+\labelindexref{Figure}{img:disk-writes} shows a basic example of QEMU emulating a disk device doing writes in the two scenarios mentioned above, and its overhead in doing so.
+One can observe that once with the implementation, the performance also massively differs, therefore we focus on the separate semantics going forward.
+
 \fig[scale=0.7]{src/img/disk-writes.pdf}{img:disk-writes}{Disk writes speed in Linux VMs vs MiniOS unikernels \cite{linux-stubdomain}}
+
+\subsection{MiniOS Unikernels}
+\label{subsec:minios-unikernels}
+
+Spawning a MiniOS unikernel tightly coupled with the QEMU source code was the primary approach when the idea of device model stubdomains came about in Xen, more than 10 years ago: MiniOS provided the necessary minimalistic features that the back then QEMU needed and was lightweight enough to offer great performance, even with multiple HVMs running concurrently.
+However, the virtualization and emulation sphere faced great improvements over a little period of time, and soon, MiniOS was found to be unable to mirror some of the more advanced features of QEMU.
+Specifically, the libc MiniOS used, Newlib \cite{newlib}, a library for embedded systems, struggled to supply demanded features, and soon, the MiniOS unikernel stubdomain became an antique relic able to run up to QEMU's 0.97 version.
 
 \subsection{Linux VMs}
 \label{subsec:linux-vms}
 
-\subsection{MiniOS Unikernels}
-\label{subsec:minios-unikernels}
+As a result of the MiniOS unikernels becoming obsolete, the XenProject community had to devise a new plan.
+They had two options: either port a more comprehensive libc to be linked against MiniOS (but also work in the core libraries to implement new syscall shims) or run QEMU in a Linux virtual machine, having guaranteed support for the novel features found in the upstream software.
+The downside of this approach is the heaviness of the VM, which even stripped down occupies way too much memory, but a trade-off had to be made, and XenProject's principal consumer, Qubes OS, adopted the idea and uses it in their ecosystem.

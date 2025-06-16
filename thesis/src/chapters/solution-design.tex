@@ -4,18 +4,78 @@
 \section{Use Cases}
 \label{sec:use-cases}
 
+Hypothetically, in a UDK competition, Unikraft would win: it presents itself with an active developer base, has regular releases and it is far from the days it used to import MiniOS implementations.
+It is growing and keeping itself to the industry standard, becoming a great replacement for the MiniOS-based unikernels currently used as stubdomains by Xen.
+The long awaited decision comes as the 0.97 QEMU version linked against the MiniOS kernel in the stubdomains has lost its purpose due to obsolescence\footnote{At the time of writing this paper, the upstream QEMU version is 10.0.0.} and has become unusable in modern contexts, with modern hardware emulation standards.
+
+By porting QEMU as a library inside Unikraft, we aim to provide a slim, up to date unikernel image running QEMU and an easy manner of bumping its version, through Unikraft's versatile make-based build system.
+We strive to offer a device model stubdomain that is both slim, easy to configure and specialized to Xen's needs.
+
+Compared to the obsolete MiniOS-based stubdom and the stripped down Linux image that came about as its substitute, an Unikraft unikernel encapsulates the best of both worlds: compact memory footprint, as a result of specialization, and an upstream version of QEMU.
+
 \subsection{Main Use Case}
 \label{subsec:main-usecase}
+
+Porting QEMU as a library in Unikraft benefits both Unikraft and Xen, firstly, by expanding the unikernel project reach and secondly, by replacing a long outdated piece of software: the MiniOS-based device models.
+The XenProject community is planing on adopting the technology and expanding it to other MiniOS stubdomains, such as the \textit{Xenstored} \cite{xenstored-stubdom} one, currently running as a daemon inside dom0, and the virtual TPM stubdom \cite{xen-tpm-stubdom}, which was long ago marked as stale.
+\labelindexref{Figure}{img:disk-writes} clearly demonstrates the need to provide XenProject with an unikernel-based device model, a more sophisticated one at that.
+There is significant room for expanding the project reach across multiple communities, but the most interested one would be XenProject.
 
 \subsection{Other Use Cases}
 \label{subsec:other-usecases}
 
+Other XenProject affiliated communities are also interested in the QEMU library port for Unikraft, namely, Qubes OS \cite{qubes-os}, an operating system developed with security in mind, running most of its processes as qubes\footnote{The term "qube" was originally invented as a non-technical alternative term to "VM".} under the Xen hypervisor.
+\labelindexref{Figure}{img:qubes-architecture} shows the regular OS processes running as VMs and the interaction between them according to the Qubes OS philosophy.
+
 \fig[scale=0.5]{src/img/qubes-architecture.png}{img:qubes-architecture}{Qubes OS architecture \cite{qubes-os-architecture}}
+
+One of these VMs is currently a Linux stubdomain running QEMU \cite{qubes-os-linux-stubdom}, with the purpose of maintaining alive a DHCP server and Pulseaudio, but the community is on the lookout to return to an unikernel-based VM as the memory footprint is just too much\footnote{Even with a stripped down Linux image, the VM occupies 128-150 MB of RAM.}.
+QEMU in Unikraft will be able to address the need for lower RAM consumption and, generally, efficient resource usage.
 
 \section{Building Blocks}
 \label{sec:building-blocks}
 
+Given that QEMU is a machine emulator and virtualizer that aims to support building and executing on a plethora of OSes and for multiple architectures, we focus on configuring the Unikraft QEMU library to be used for the architectures supported by Unikraft and Xen, that being \textit{x64} and \textit{AArch64}.
+Because there's little interest for \textit{AArch64} in Qubes OS, we set the sensible objective of building the unikernel only for \textit{x64}.
+Even by reducing the target to only one architecture, the total number of sources that would compile in the final Unikraft VM, from the QEMU side\footnote{QEMU is dependent on many external libraries, one of them being Glib} is still around 1000.
+When it comes to the platform the QEMU unikernel is going to run on, the obvious choice is Xen: it was requested by its community, and it will be used by Qubes OS, a project that constructed their product around the type-1 hypervisor.
+
+We created the QEMU port in Unikraft as an external library, \textit{lib-qemu}, which requires multiple other external libraries: some that need to be freshly ported (\textit{lib-pcre2}, \textit{lib-glib}, to name a few), and some that are already part of the Unikraft ecosystem (\textit{lib-musl}, \textit{lib-zlib} and others).
+As a result, we take advantage of the already implemented robust make-based build system, to integrate the missing library pieces into the big Unikraft picture.
+
 \section{Architectural Overview}
 \label{sec:arch-overview}
 
+Achieving running QEMU in Unikraft means mostly working on the external libraries mentioned previously: \textit{lib-musl}, \textit{lib-zlib}, \textit{lib-pcre} and \textit{lib-pixman}, which are already ported, and \textit{lib-pcre2}, \textit{lib-glib} and other Xen libraries, to be ported in an effort to support the target \textit{lib-qemu}.
+\labelindexref{Figure}{img:project-architecture} displays the interaction between these components inside Unikraft, together with two extra features to be achieved in order to have the final unikernel able to boot and make hypercalls.
+
 \fig[scale=0.5]{src/img/project-architecture.pdf}{img:project-architecture}{\textit{lib-qemu} port architecture}
+
+As a result of having the Unikraft QEMU VM running in a Qubes OS context, we have to be aware of the fact that the unikernel has to know how to issue hypercalls, due to the Xen specific libraries that the community is currently using, \textit{libxendevicemodel} and \textit{libxenctrl}, to name a few.
+Therefore, we include into the implementation an extra component, \textit{xen-hypercalls}, functioning as a driver inside Unikraft core.
+
+What's more, recent work in Unikraft's core library \textit{syscall_shim} hardcoded an assembly prologue in the syscall handling of all system calls that entail saving the context on an auxiliary stack before giving it as an argument, syscalls like \textit{clone}, heavily used by \textit{lib-qemu}.
+The syscall prologue proves to not be fully agnostic because it uses assembly instructions like \textit{cli}, as shown in \labelindexref{Listing}{lst:syscall-prologue}, that work nicely on platforms such as KVM, but not so great on Xen, which has other ways of clearing and setting interrupts (via event channels).
+Therefore, we are put in the position of refactoring this specific part of \textit{syscall_shim} to create fully portable prologues for all platforms.
+
+\lstset{language=C,caption=Non-portable \textit{syscall_shim} macro that prepends syscalls with execenv properties,label=lst:syscall-prologue}
+\begin{lstlisting}
+#define UK_SYSCALL_EXECENV_PROLOGUE_DEFINE(pname, fname, x, ...) \
+	long __used \
+	pname(UK_ARG_MAPx(x, UK_S_ARG_LONG_MAYBE_UNUSED, __VA_ARGS__));	\
+	__asm__ ( \
+		".global " STRINGIFY(pname) "\n\t"	\
+		"" STRINGIFY(pname) ":\n\t"	\
+		"cli\n\t" \
+		"/* Switch to the per-CPU auxiliary stack */\n\t" \
+		"/* AMD64 SysV ABI: r11 is scratch register */\n\t"	\
+		"/* Our stack top now contains a return address\n\t" \
+		" * pushed by call; this must be ignored when\n\t" \
+		" * saving the stack pointer to the interrupt\n\t" \
+		" * return structure, but taken into account when\n\t" \
+		" * we actually return execution\n\t" \
+		" */\n\t" \
+    );   
+\end{lstlisting}
+
+\abbrev{TPM}{Trusted Platform Module}

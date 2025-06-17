@@ -1,12 +1,49 @@
 \chapter{Implementation Details}
 \label{chapter:implementation-details}
 
+Porting any piece of software as an external library to Unikraft means molding its build system to Unikraft's rather than the other way around.
+Unikraft's build lifecycle consists of multiple steps, pictured in \labelindexref{Figure}{img:build-stages}:
+
+\begin{enumerate}
+    \item \textbf{Configuring} the unikernel (using Kconfig \cite{kconfig} for ease of selection and dependency check).
+    \item \textbf{Fetching} the remote library code (through complex \textit{make} rules saved in a \textit{Makefile.uk} file).
+    \item \textbf{Preparing} the fetched library code (as stated in \textit{Makefile.uk}).
+    \item \textbf{Compiling} the external library code together with Unikraft's core libraries (using the \textit{make} variables populated by \textit{Makefile.uk}).
+    \item \textbf{Linking} the final unikernel image.
+\end{enumerate}
+
+Depending on the library, extra steps must be added: patching, creating glue code in order to ensure (binary) compatibility with Unikraft or auto-generating sources and headers.
+Nevertheless, the magic happens via two very important files, \textit{Config.uk}, containing the dependencies of the library, and \textit{Makefile.uk}, consisting of the \textit{make} rules that fetch, configure and build the right sources.
+
 \fig[scale=0.7]{src/img/build-stages.pdf}{img:build-stages}{Build stages in Unikraft}
 
 \fig[scale=0.5]{src/img/generated-files.pdf}{img:generated-files}{Generated files in building Unikraft \cite{unikraft-build-process}}
 
+\labelindexref{Figure}{img:generated-files} lists all generated files, and their corresponding core and external Unikraft \textit{make} variables holding them in order to consecutively advance through the build cycle until the bootinfo, debug, and run images are created.
+
+To begin with, \textit{LIB*_URL} is locally defined for each library involved in the build, and holds the remote address of the library source code we wish to compile.
+
+After fetching and extracting the source code, each source we wish to compile has to manually be added to \textit{LIB*_SRCS-y}, also locally defined in every's library \textit{Makefile.uk}, a build stage closely followed by the compilation of said sources and creation of the \textit{make} variable holding the object files.
+
+If we wish to keep some symbols visible at library scope only, we mask them through an optional \textit{exportsyms.uk} file, populated as shown in \labelindexref{Listing}{lst:exportsyms}, with the names of the exported outside the library symbols.
+
+\lstset{language=make,caption=\textit{exportsyms.uk}'s exporting symbols,label=lst:exportsyms}
+\begin{lstlisting}
+open
+write
+read
+\end{lstlisting}
+
+The last step before having a bootable unikernel image is linking all the individual libraries together, via the only global \textit{make} variable involved in the process, \textit{UK_OLIBS-y}.
+Needless to say, Unikraft supports linking against precompiled static libraries, through \textit{UK_ALIBS-y}, but that rarely happens, due to the prerequisite of patching and providing glue code.
+
+The external libraries we ported or updated in an effort to bring QEMU as a library in Unikraft, the libraries that follow all the steps mentioned above, are \textit{lib-qemu}, \textit{lib-glib}, \textit{lib-pcre2}, \textit{lib-xentools} and \textit{lib-gcc}.
+
 \section{\textit{lib-qemu} Implementation}
 \label{sec:lib-qemu-impl}
+
+Bringing QEMU to Unikraft mimicked the usual build lifecycle of a C/C++ open source library, as described before.
+Firstly, we laid down its dependencies and registered them to the menuconfig system, as pictured in \labelindexref{Listing}{lst:qemu-config-uk}.
 
 \lstset{language=make,caption=\textit{lib-qemu}'s \textit{Config.uk},label=lst:qemu-config-uk}
 \begin{lstlisting}
@@ -24,6 +61,8 @@ config LIBQEMU
 
 \subsection{Patching QEMU}
 \label{subsec:patching-qemu}
+
+Secondly, we registered the library, fetched and patched its code with the necessary changes needed by the Qubes OS community, shown in \labelindexref{Listing}{lst:qemu-makefile-uk-1}.
 
 \lstset{language=make,caption={\textit{lib-qemu}'s registration, fetching and patching from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-1}
 \begin{lstlisting}
@@ -46,6 +85,10 @@ $(eval $(call patch,libqemu,$(LIBQEMU_PATCHDIR),$(LIBQEMU_DIR)))
 
 \subsection{Configuring QEMU}
 \label{subsec:configuring-qemu}
+
+Thirdly, we took into account the use case for which QEMU is built in Qubes OS and configured it accordingly, keeping in mind that an unikernel acting as a device model reaches peek performance if it is as slim as possible.
+As a result, many of QEMU's unnecessary features related to IO emulation can be seen as disabled in \labelindexref{Listing}{lst:qemu-makefile-uk-2}.
+The little features we kept enabled are concerned with Xen, that we choose as an accelerator, and wiht the target architecture, \textit{x64}. 
 
 \lstset{language=make,caption={\textit{lib-qemu}'s configuration from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-2}
 \begin{lstlisting}
@@ -131,8 +174,50 @@ $(LIBQEMU_BUILD)/.configured: $(LIBQEMU_BUILD)/.prepared
 \subsection{Gathering Sources and Headers}
 \label{subsec:gathering-sources-headers}
 
+Usually, building the unikernel with the target library is a very iterative process because it requires building the unikernel step-by-step, including new files to the build, making adjustments, re-building, etc.
+This, and the various and quite quirky build systems libraries impose, is why we must first build the soon-to-be-ported library locally, understand the steps it goes through, its dependencies and sources and only then bring it to Unikraft.
+\textit{lib-qemu} followed no different path from that: we ran the \textit{./configure} script with a bunch of options disabled, in order to get a lean image, and finally, we called \textit{make} to start the compilation.
+Typically, this step produces output of great importance for the porting work, because it contains compiler options, flags, sources and includes, all which should be transformed into rules in the ported library \textit{Makefile.uk}.
+
+Unfortunately, minimalistic enough, the \textit{make} output provided merely an idea of what source file was compiling at a given moment of time, as captured by \labelindexref{Listing}{lst:snippet-make-output}.
+In consequence, we had to search for the necessary information elsewhere. 
+
+\lstset{language=bash,caption={Snippet of the 1913 lines \textit{make} output},label=lst:snippet-make-output}
+\begin{lstlisting}
+[1509/1913] Compiling C object qemu-system-x86_64.p/softmmu_main.c.o
+\end{lstlisting}
+
+The first place we went to find answers was a log file, saved by Meson, with all the compile commands, conveniently named \textit{compile_commands.json}.
+It contains a list with all the compilation and linking commands ran during the build, a snippet being shown in \labelindexref{Listing}{lst:snippet-compile_commands}.
+
+\lstset{language=make,caption={Snippet of an element saved in the array of the compile_commands.json file},label=lst:snippet-compile_commands}
+\begin{lstlisting}
+{
+    "directory": "/home/maria/qemu/build",
+    "command": "cc -m64 -mcx16 -Isubprojects/dtc/libfdt/libfdt.a.p -Isubprojects/dtc/libfdt -I../subprojects/dtc/libfdt -fdiagnostics-color=auto -Wall -Winvalid-pch -Werror -std=gnu11 -O2 -g -Wpointer-arith -Wcast-qual -Wnested-externs -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wshadow -DFDT_ASSUME_MASK=0 -DNO_YAML -DNO_VALGRIND -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -fno-strict-aliasing -fno-common -fwrapv -fPIE -MD -MQ subprojects/dtc/libfdt/libfdt.a.p/fdt.c.o -MF subprojects/dtc/libfdt/libfdt.a.p/fdt.c.o.d -o subprojects/dtc/libfdt/libfdt.a.p/fdt.c.o -c ../subprojects/dtc/libfdt/fdt.c",
+    "file": "../subprojects/dtc/libfdt/fdt.c",
+    "output": "subprojects/dtc/libfdt/libfdt.a.p/fdt.c.o"
+}
+\end{lstlisting}
+
+Having this array at hand, we were able to parse it, create the necessary source paths and register them in their subsequent sub-library.
+The headers were parsed by opening each source file and extracting the includes, but unfortunately that wasn't robust enough, as headers can include other headers and so on.
+We had to find a better solution.
+
+The second approach appeared to be better in the sense that all source and headers to be introduced into the Unikraft build system were found in the \textit{.d} files generated at compile time.
+Handily, each QEMU sub-library had these dependency files saved separately, so parsing them and producing each sub-library's \textit{Makefile.uk} by applying the \labelindexref{Listing}{lst:get_sources} script was greatly eased.
+
+With source and header files introduced to the build system, we started compiling the library.
+It was no surprise finding out that the original QEMU build system, with all of its many optional configurations disabled, was still too bloated.
+This was due to the on-cascade selection of configs done by QEMU's \textit{minikconf.py} script, concerned with parsing \textit{.mak} files and checking the dependencies between various configurations.
+As a result, we patched the original QEMU build system to skip this step and provided our own target, host and devices config headers. 
+
 \subsection{Compartmentalizing \textit{lib-qemu}}
 \label{subsec:compartmentalizing-qemu}
+
+Because we are concerned with compartmentalization, we made the decision that \textit{lib-qemu} should be organized in sub-libraries, due to the sheer number of files.
+Each sub-library has its own \textit{Makefile.uk} which further registers its sources and headers to the build system via \textit{Makefile.rules} as shown in \labelindexref{Listing}{lst:makefile-rules}.
+What's more, \textit{lib-qemu}'s sub-libraries should also be included into the main \textit{Makefile.uk} in order to benefit from the rules defined by \textit{Makefile.rules} as pictured by \labelindexref{Listing}{lst:qemu-makefile-uk-3}.
 
 \lstset{language=make,caption={\textit{lib-qemu}'s registration of sub-libraries from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-3}
 \begin{lstlisting}
@@ -165,6 +250,9 @@ include $(LIBQEMU_BASE)/Makefile.uk.qemu.qos
 \subsection{Auto-generating Sources and Headers}
 \label{subsec:autogenerating-sources-headers}
 
+Nevertheless, we collected and auto-generated sources and files as seen in QEMU's Ninja/Meson-based original build system.
+This is captured in \labelindexref{Listing}{lst:qemu-makefile-uk-4}.
+
 \lstset{language=make,caption={\textit{lib-qemu}'s auto-generation of source and header files from \textit{Makefile.uk}},label=lst:qemu-makefile-uk-4}
 \begin{lstlisting}
 ####################################################################
@@ -179,11 +267,66 @@ $(LIBQEMU_BUILD)/.configured: $(LIBQEMU_BUILD)/.prepared
 \subsection{Compiling \textit{lib-qemu}}
 \label{subsec:compiling-qemu}
 
+Compiling \textit{lib-qemu} proved to be a challenge too.
+QEMU's build system picks up the target operating system on which the final binary will run based on the environmental setup of the machine on which the compilation takes place.
+For Unikraft, it is highly problematic because it means that very specific Linux features will be expected to be supported.
+Sources of the fashion of \textit{can_socketcan.c}, as seen in \labelindexref{Listing}{lst:meson-assumptions}, therefore become candidates for compilation even though they make use of (problematic for Unikraft) headers.
+The used headers are pictured in \labelindexref{Listing}{lst:linux-headers}, and they error out when compiling against the Unikraft codebase simply because Unikraft does not support all Linux kernel features.
+
+\lstset{language=python,caption={Meson assuming Linux specific \textit{can_socketcan.c} source is needed by environmental variable},label=lst:meson-assumptions}
+\begin{lstlisting}
+can_ss.add(when: 'CONFIG_LINUX', if_true: files('can_socketcan.c'))
+\end{lstlisting}
+
+\lstset{language=c,caption={Impossible to compile \textit{can_socketcan.c} source due to specific to Linux headers},label=lst:linux-headers}
+\begin{lstlisting}
+#include "qemu/osdep.h"
+#include "qemu/log.h"
+#include "qemu/main-loop.h"
+#include "qemu/module.h"
+#include "qapi/error.h"
+#include "chardev/char.h"
+#include "qemu/sockets.h"
+#include "qemu/error-report.h"
+#include "net/can_emu.h"
+#include "net/can_host.h"
+    
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <linux/can.h>
+#include <linux/can/raw.h>
+#include "qom/object.h"    
+\end{lstlisting}
+
+Consequently, we had two options going forward: overwrite the target operating system during the configuration step or manually removing all sources introduced into the build system by the set \textit{CONFIG_LINUX} variable.
+We went for the second option, as the configuration script errors out if there's no traditional operating system detected and modifying that behavior meant patching a piece of software out of the reach for this project.
+
 \subsection{Linking \textit{lib-qemu}}
 \label{subsec:linking-qemu}
 
+Having all the object files generated and ready to be linked in the \textit{make} variable \textit{LIBQEMU_OBJS-y}, we found two other major issues blocking the kernel images from being created.
+
+One problem was having multiple source files with the same name collide when being compiled into the object file.
+We avoided compiling these duplicates into the same object, by instructing the compiler to prepend a unique prefix to each target, like shown in \labelindexref{Listing}{lst:qemu-makefile-uk-5}.
+
+\lstset{language=make,caption=Object prefix for sources with identical names,label=lst:qemu-makefile-uk-5}
+\begin{lstlisting}
+LIBQEMU_HWCORE_SRCS-y += $(LIBQEMU)/hw/core/bus.c|core
+LIBQEMU_COMMON_SRCS-y += $(LIBQEMU)/hw/usb/bus.c|usb
+\end{lstlisting}
+
+For each one of the prefixes in \labelindexref{Listing}{lst:qemu-makefile-uk-5}, the resulting object files are \textit{core.bus.o} and \textit{usb.bus.o}, respectively.
+
+The second issue was regarding the \textit{GCC} compiler generating certain arithmetic instructions with the assumption that they will be provided by the automatic link against its lower-level runtime library \textit{libgcc}, assumption that fails in Unikraft's freestanding environment.
+We bypassed this link error by updating Unikraft's port of \textit{libgcc}, which will be discussed later on in this chapter.
+
 \section{\textit{lib-glib} Implementation}
 \label{sec:lib-glib-impl}
+
+GLib \cite{glib} is a C utility open source library on which QEMU heavily relies for data types, macros and more.
+Besides using the main GLib library, QEMU also requires porting GModule \cite{gmodule}, for dynamically loading modules.
+Because of the general organization of the library's source code\footnote{GLib's tarballs deliver multiple additional libraries: GObject, GModule and GIO}, we brought GLib to Unikraft with the option of enabling/disabling GModule as the user sees fit.
+This is achieved in \labelindexref{Listing}{lst:glib-config-uk} by transforming the library into a mini menuconfig.
 
 \lstset{language=make,caption=\textit{lib-glib}'s \textit{Config.uk},label=lst:glib-config-uk}
 \begin{lstlisting}
@@ -207,6 +350,11 @@ endif
 \subsection{Making \textit{lib-glib} a menuconfig}
 \label{subsec:glib-menuconfig}
 
+Similarly to \textit{lib-qemu}, GLib exposes an initial configuration step, that sets various macros based on the host system setup, which end up, unfortunately, falsely making assumptions about Unikraft's various capabilities.
+We bypass this step and include our own headers, with the right modifications.
+
+On the other hand, building GLib does not require all the blocks found in \textit{lib-qemu}: we simply fetch the source code, compile the collected sources (if GModule is selected as pictured in \labelindexref{Figure}{img:glib-menuconfig}, some extra files are added — see \labelindexref{Listing}{lst:glib-makefile-uk-1}) and link the library into the unikernel image.
+
 \fig[scale=0.30]{src/img/glib-menuconfig.png}{img:glib-menuconfig}{Configuring \textit{lib-glib}}
 
 \lstset{language=make,caption={\textit{lib-glib}'s on demand inclusion of GModule sources from \textit{Makefile.uk}},label=lst:glib-makefile-uk-1}
@@ -215,11 +363,19 @@ LIBGLIB_SRCS-$(CONFIG_LIBGLIB_GMODULE) += $(LIBGLIB)/gmodule/gmodule.c
 LIBGLIB_SRCS-$(CONFIG_LIBGLIB_GMODULE) += $(LIBGLIB)/gmodule/gmodule-deprecated.c
 \end{lstlisting}
 
+However, GLib is not fully freestanding: without accounting for \textit{lib-musl}, it relies on the PCRE2 library, which should also be introduced to Unikraft.
+
 \section{\textit{lib-pcre2} Implementation}
 \label{sec:lib-pcre2-impl}
 
+PCRE2 \cite{pcre2} is a library that offers regular expression pattern matching using Perl like syntax.
+It is highly configurable and modular and presents itself as one of the easiest library to be ported to Unikraft due to the detailed documentation and design.
+
 \subsection{\textit{lib-pcre2} with UTF-8,16,32 Encodings}
 \label{subsec:pcre2-menuconfig}
+
+As it can be built for multiple encodings (UTF-8, UTF-16 or UTF-32), we went for a menuconfig approach (shown in \labelindexref{Figure}{img:pcre2-menuconfig}), similar to how we managed \textit{lib-glib}.
+To achieve this, we passed different preprocessing symbols matching the user's options as seen in \labelindexref{Listing}{lst:pcre2-makefile-uk-1}.
 
 \fig[scale=0.30]{src/img/pcre2-menuconfig.png}{img:pcre2-menuconfig}{Configuring \textit{lib-pcre2}}
 
@@ -236,11 +392,31 @@ LIBPCRE2_CFLAGS-y += $(LIBPCRE2_DEFINES-y)
 \section{\textit{lib-xentools} Update}
 \label{sec:lib-xentools-update}
 
+Xen-tools \cite{xen-tools} represents a collection of libraries used by domains for interacting with the Xen hypervisor.
+Some of the functionality it provides is concerned with: XenStore\footnote{XenStore is a hierarchical namespace (similar to a filesystem) shared between domains.}, event channels\footnote{Event channels are the basic primitive provided by Xen for event notifications, similar to hardware interrupts.}, grant tables\footnote{Grant tables provide a generic mechanism to memory sharing between domains.}, hypercalls\footnote{Hypercalls are a software trap from a domain to the hypervisor.}, privileged foreign mappings, device models and logging.
+It is part of the Xen hypervisor source tree \cite{xen-source-tree} but acts as a separate subsystem.
+
+Because Unikraft started as a Xen project, it has an early port of Xen-tools that dates back to 2019, the 4.13 release.
+Nonetheless, that needs to be updated to a newer version in order to match \textit{lib-qemu} and the environment in which the stubdomain will be tested, a 4.18 Xen hypervisor running an Ubuntu 24.04 dom0, ergo, a bump to the 4.18 release for Xen-tools is necessary.
+
+Updating the library meant revisiting the sources that were included, fixing paths for the ones that were moved and removing the ones that were reorganized.
+An example to follow this idea would be the split of \textit{libxenctrl} into \textit{libxenctrl} and \textit{libxenguest}, that resulted in the decision of not including the latter due to no use-case at hand.
+The Xen-tools libraries required by \textit{lib-qemu} are \textit{libxencall}, \textit{libxenctrl}, \textit{libxendevicemodel}, \textit{libxenevtchn}, \textit{libxenforeingmemory}, \textit{libgnttab}, \textit{libxenstore}, \textit{libxentoolcore} and \textit{libxentoollog}, all updated to the target 4.18 version through the usual Unikraft build lifecycle.
+
 \subsection{Renaming Symbols in Xen Platform Code}
 \label{subsec:xen-renaming-symbols}
 
-\subsection{Xen Hypercall Interfaces Versioning}
-\label{subsec:xen-interface-versioning}
+Without any further modifications, \textit{lib-xentools} successfully links when used together with KVM as a platform.
+This is not the case when built against Xen platform code and the issue lies in core Unikraft symbol naming: common functions used across Xen driver code clash with identical named symbols in \textit{lib-xentools}.
+Limiting their scope (through an \textit{exportsyms.uk} file), either at \textit{lib-xentools} or Xen platform code level is not feasible, as both \textit{lib-qemu} and internal drivers act as consumers for these symbols.
+Therefore, we were left with renaming the colliding symbols inside core Unikraft.
 
 \section{\textit{lib-gcc} Update}
 \label{sec:lib-gcc-update}
+
+\textit{libgcc} \cite{libgcc} is a low-level, runtime library, linked against all binaries compiled with \textit{GCC}.
+It provides functions to match \textit{GCC}'s call generation for code it finds difficult to create inline routines for.
+For instance, in compiling \textit{lib-qemu}, \textit{GCC} finds it necessary to emit calls to arithmetic functions such as \textit{__udivti3}, \textit{__divti3} or \textit{__popcountdi2}, functions that without a \textit{lib-gcc} port result in an undefined symbol linking error.
+
+Fortunately, Unikraft already provides an early port of \textit{lib-gcc}, consisting of only two sub-libraries from the many \textit{GCC} offers in its source tree, \textit{lib-effi} and \textit{lib-backtrace}.
+We added a third one, \textit{lib-libgcc}, concerned with solely bringing the routines for integer arithmetic, needed by \textit{lib-qemu}.

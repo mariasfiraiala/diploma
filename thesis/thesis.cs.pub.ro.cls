@@ -229,7 +229,7 @@
 % Usage: \fig{file}{label}{caption}
 %   TODO: references should point to the top of the image
 \newcommand{\fig}[4][]{
-\begin{figure}[htb]
+\begin{figure}[!htb]
 	\begin{center}
 		\includegraphics[#1]{#2}
 		\caption{#4 \label{#3}}

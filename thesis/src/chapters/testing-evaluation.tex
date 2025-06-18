@@ -1,9 +1,12 @@
 \chapter{Testing and Evaluation}
 \label{chapter:testing-evaluation}
 
+Bringing new libraries to the Unikraft realm proves to be both important (it improves project reach, portability and impact) and an effort of great detail (it entails working with multiple sources, and headers, build systems and languages).
+We gathered in \labelindexref{Table}{table:libraries-metrics} some metrics regarding porting QEMU to Unikraft in order to visualize the magnitude of the project, considering only its external building blocks. 
+
 \begin{center}
 \begin{table}[htb]
-  \caption{Unikraft ported libraries metrics}
+  \caption{Unikraft ported libraries code metrics}
   \begin{tabular}{l*{6}{c}r}
     Library & Number of sources & Lines of code & Lines of patched code \\
     \hline
@@ -13,14 +16,70 @@
     \textit{lib-xentools} & 59 & 46414 & 20 \\
     \textit{lib-gcc} & 18 & 15200 & 336 \\
   \end{tabular}
-  \label{table:reports}
+  \label{table:libraries-metrics}
 \end{table}
 \end{center}
+
+For even more context, \labelindexref{Figure}{img:lib-metrics} compares the scale of the \textit{lib-qemu} port to the ones of other popular and large Unikraft external libraries.
+Keeping in mind the fact that \textit{lib-qemu} reached more than half the sources of Unikraft's main standard library, its successful compilation and linking is an achievement on its own.
+
+Putting that aside, in the following chapters we discuss testing and proving that the unikernel image containing QEMU code boots and is debuggable.
 
 \fig[scale=0.7]{src/img/lib-metrics.pdf}{img:lib-metrics}{Number of sources for popular Unikraft libraries vs \textit{lib-qemu}}
 
 \section{Unikraft Instance Setup}
 \label{sec:unikraft-instance-setup}
+
+In order to start the QEMU instance, we must first provide an Unikraft main function, called by \textit{ukboot}'s\footnote{\textit{ukboot} is the boostrapping library in Unikraft.} \textit{do_main}.
+\labelindexref{Listing}{lst:unikraft-main} showcases a simple QEMU command packaged in the unikernel main routine.
+In order to reach this point it followed the next path:
+
+\begin{enumerate}
+  \item \textit{_libxenplat_start}, with general processor setup and temporary save of the start info page\footnote{A start info page is a read-only general information page mapped early in the boot process into each's domU memory.} on the scratch stack (a clean trampoline mechanism to make architecture dependent code easier to be devised).
+  \item \textit{_libxenplat_x86entry}, the entry point of the unikernel, when running on Xen; it supplies low-level code for running in a paravirtualized context, it receives the shared info page\footnote{A shared info page is a dynamic general information page mapped into their own memory by each domU.} and sets-up the event channel communication mechanism.
+  \item \textit{uk_boot_entry}, containing critical setup for the unikernel such as timer and interrupt initialization, Unikraft constructors run and many more.
+  \item \textit{do_main}, concerned with per app configurations, such as specific constructors and environmental variables.
+\end{enumerate}
+
+\lstset{language=C,caption=Unikraft main,label=lst:unikraft-main}
+\begin{lstlisting}
+#include "qemu/osdep.h"
+#include "qemu-main.h"
+#include "sysemu/sysemu.h"
+
+int qemu_default_main(void)
+{
+    int status;
+
+    status = qemu_main_loop();
+    qemu_cleanup();
+
+    return status;
+}
+
+int (*qemu_main)(void) = qemu_default_main;
+
+int main(int argc, char **argv)
+{
+    qemu_init(2, {"qemu", "--help"});
+    return qemu_main();
+}
+\end{lstlisting}
+
+Up until now, we've covered all the programmatic aspects of the unikernel run, but launching an unikernel under Xen is a bit more complicated as it entails having a dom0 kernel already up and running.
+We've created the dom0 guest by compiling and installing Xen in a regular Ubuntu 24.04 operating system, followed by reloading the dynamic linker, enabling some Xen specific system services and updating the GRUB.
+\labelindexref{Listing}{lst:grub-options} contains the Xen related options set before updating the GRUB config that mutate our Linux kernel into a dom0 privileged virtual machine.
+
+\lstset{language=make,caption=GRUB options transforming a regular kernel into a Xen dom0,label=lst:grub-options}
+\begin{lstlisting}
+sudo echo "GRUB_CMDLINE_XEN_DEFAULT=dom0_mem=4096M,max:4096M" >> /etc/default/grub
+sudo echo "GRUB_CMDLINE_XEN=" >> /etc/default/grub
+\end{lstlisting}
+
+\labelindexref{Listing}{lst:running-unikraft} shows the configuration file of the soon-to-be-launched domU and the run command within the dom0.
+As per this config file, the Unikraft domU will be assigned 1 CPU core, 1000 MBs of memory and the \textit{qemu-hello} name, while the image will be started in PV mode.
+The actual launcher of the image is a Xen tool, \textit{xl}, created from one of Xen's sub-libraries we mentioned before, \textit{libxenlight}.
+It is concerned with the management of domUs, its attributions usually referring to creating, pausing, shutdowning and on the fly changing of configs for guest VMs.
 
 \lstset{language=make,caption=Running Unikraft command,label=lst:running-unikraft}
 \begin{lstlisting}
@@ -44,25 +103,36 @@ oOo oOO| | | | |   (| | | (_) |  _) :_
 \section{Testing Environment Setup}
 \label{sec:testing-environment-setup}
 
-\subsection{The Unikraft Instance}
-\label{subsec:testing-environment-setup}
-
-\subsection{The QEMU Instance}
-\label{subsec:qemu-instance}
+The machine we built and ran \textit{lib-qemu} on is a dom0 Ubuntu 24.04 with an Intel i5-7500, 3.40GHz CPU featuring 4 cores and 11 GBs of allocated memory.
+\labelindexref{Figure}{img:menuconfig} shows the first step of setting-up our testing environment, meaning the selection of the necessary libraries and options for the fully fledged QEMU instance.
 
 \fig[scale=0.30]{src/img/menuconfig.png}{img:menuconfig}{Configuring \textit{lib-qemu}}
+
+When it comes to the time spent in building all the different libraries that make part of the unikernel running QEMU, \labelindexref{Table}{table:time-metrics} showcases the overall computational work to get the final 12 MBs stripped kernel and 71 MBs debug image.
+
+\begin{center}
+\begin{table}[htb]
+  \caption{Unikraft ported libraries build time metrics}
+  \begin{tabular}{l*{6}{c}r}
+    Image & Time (in minutes and seconds) \\
+    \hline
+    c-hello &  0m10,537s \\
+    pcre2 & 0m24,699s  \\
+    glib & 3m38,898s \\
+    xentools & 2m57,389s \\
+    qemu & 12m22,125s \\
+  \end{tabular}
+  \label{table:time-metrics}
+\end{table}
+\end{center}
+
+Each of the images in \labelindexref{Table}{table:time-metrics} is built as lean as possible, with only the required dependencies and an empty main in order to truthfully reflect the build stage duration.
 
 \section{Functionality Testing}
 \label{sec:functionality-testing}
 
+Discovered in the late phase of the project, the non-portable \textit{syscall_shim} macro that prepends any syscall with execenv properties we previously mentioned in \labelindexref{Listing}{lst:syscall-prologue}, stopped the evolution of the QEMU port.
+A highly dependent on \textit{clone} support in Xen library, \textit{lib-qemu} spawns multiple threads during application constructor run phase.
+\labelindexref{Figure}{img:debugging-qemu} proves the ability to debug the unikernel containing QEMU code, as well as its successful boot (app constructor routines are applied just before reaching the application main - that being the device model entry-point).
+
 \fig[scale=0.30]{src/img/debugging-qemu.png}{img:debugging-qemu}{Debugging Unikraft image built with \textit{lib-qemu}}
-
-\section{Performance Testing}
-\label{sec:performance-testing}
-
-\subsection{Memory Footprint Evaluation}
-\label{subsec:memory-footprint-evaluation}
-
-\subsection{Image Size Evaluation}
-\label{subsec:image-size-evaluation}
-

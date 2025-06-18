@@ -1,2 +1,14 @@
 \chapter{Conclusion and Further Work}
 \label{chapter:conclusion-further-work}
+
+To conclude, we set the goal of having a heavy, huge emulator and virtualizer running in Unikraft, and we delivered just that: QEMU boots, calls its constructors and is debuggable.
+Unikraft's little support for advanced syscalls on our target platform, Xen, calls for improvement in the portability area, shims and abstraction implementation.
+Regardless of QEMU's rigid build system, Linux dependency and non-existent freestanding target, we achieved an image that not only competes with \textit{lib-musl} when measuring ported sources and headers, but also links, runs and calls more than 200 application constructors.
+
+As a side effect, we additionally improved native library support: Unikraft will benefit from two freshly ported libraries, \textit{lib-glib} and \textit{lib-pcre2}, and two major updates in \textit{lib-xentools} and \textit{lib-gcc}.
+This will prove to be of great interest outside \textit{lib-qemu}'s sphere: future users of Unikraft will be welcomed with a UDK capable of natively building virtually any application of their choice.
+
+Considering future work, we set the goal of upstreaming all newly ported or updated libraries involved in our project, \textit{lib-qemu}, \textit{lib-glib}. \textit{lib-pcre2}, \textit{lib-xentools} and \textit{lib-gcc}.
+Moreover, we plan on rethinking abstractions for \textit{clone}-like syscalls to be fit for all Unikraft platforms.
+We extend the reach of out efforts to also test and adapt the Qubes OS device model using a stripped down Linux VM to an Unikraft unikernel, with the final aim being updating the stubdomains used by Xen.
+It entails understanding and modifying their build system to use Unikraft as an unikernel producer and \textit{xl} as an unikernel consumer.

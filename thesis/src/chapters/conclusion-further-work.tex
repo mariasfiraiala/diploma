@@ -8,7 +8,23 @@ Regardless of QEMU's rigid build system, Linux dependency and non-existent frees
 As a side effect, we additionally improved native library support: Unikraft will benefit from two freshly ported libraries, \textit{lib-glib} and \textit{lib-pcre2}, and two major updates in \textit{lib-xentools} and \textit{lib-gcc}.
 This will prove to be of great interest outside \textit{lib-qemu}'s sphere: future users of Unikraft will be welcomed with a UDK capable of natively building virtually any application of their choice.
 
-Considering future work, we set the goal of upstreaming all newly ported or updated libraries involved in our project, \textit{lib-qemu}, \textit{lib-glib}. \textit{lib-pcre2}, \textit{lib-xentools} and \textit{lib-gcc}.
+Considering future work, we set the goal of upstreaming all newly ported or updated libraries involved in our project, \textit{lib-qemu}, \textit{lib-glib}, \textit{lib-pcre2}, \textit{lib-xentools} and \textit{lib-gcc}.
 Moreover, we plan on rethinking abstractions for \textit{clone}-like syscalls to be fit for all Unikraft platforms.
 We extend the reach of out efforts to also test and adapt the Qubes OS device model using a stripped down Linux VM to an Unikraft unikernel, with the final aim being updating the stubdomains used by Xen.
 It entails understanding and modifying their build system to use Unikraft as an unikernel producer and \textit{xl} as an unikernel consumer.
+
+We've gathered the necessary steps in order to accomplish running \textit{lib-qemu} for Qubes OS below:
+
+\begin{enumerate}
+    \item Successfully run \textit{lib-qemu} in Unikraft.
+    \item Set up a simple test doing IO emulation under Unikraft.
+    \item Transform the Qubes OS stubdomain to programmatically do IO emulation.
+    \item Run \textit{lib-qemu} in Unikraft as a stubdomain for Qubes OS.
+    \item Run QEMU in a Linux stubdomain for Qubes OS.
+    \item Compare the two runs, collect metrics and create pull request with the build instrumentation in Qubes OS repositories.
+\end{enumerate}
+
+When it comes to upstreaming changes in the Xen code source for stubdomains, we are mainly to look at build steps in the Makefiles under their now almost deprecated \textit{stubdom} directory.
+
+Nevertheless, we achieved the main goal of running QEMU in a slim fashion under a potent UDK.
+The path we followed proved that porting and running a device emulator in an environment full of constrains is possible and the work following this proof-of-concept remains to open many doors when it comes to the virtualization world.
